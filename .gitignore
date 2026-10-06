@@ -22,6 +22,15 @@ dist/
 *.sqlite
 *.sqlite3
 
+# Avaliação (bloco 10): resultados entram no git; conversas gravadas e relatório gerado, não
+.claude/hillclimb/**/traces/
+.claude/hillclimb/**/report.html
+.claude/hillclimb/**/state.json
+.claude/hillclimb/**/trajectory/
+
+# Configuração local do Claude Code (a avaliação em .claude/hillclimb continua versionada)
+.claude/settings.local.json
+
 # Editor e sistema
 .vscode/
 .idea/

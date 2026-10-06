@@ -1,0 +1,31 @@
+# Só pyproject.toml, uv.lock e src/ entram na imagem. Todo o resto fica de fora.
+
+# Segredos: nunca na imagem
+.env
+.env.*
+*.pem
+*.key
+
+# Dados locais e material do cliente
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.txt
+
+# Ambiente, cache e ferramentas
+.venv/
+**/__pycache__/
+.pytest_cache/
+.git/
+.github/
+.claude/
+.vscode/
+.idea/
+
+# Desenvolvimento
+tests/
+evals/
+docs/
+ollama/
+*.md

@@ -64,6 +64,18 @@ _FERRAMENTA = re.compile(
 
 LIMITE_RESPOSTA = 1500  # WhatsApp aceita mais, mas recepção não manda textão
 
+# Frases que só existem nas instruções internas. Se aparecerem numa resposta, o modelo caiu num
+# ataque de extração de prompt: a resposta é trocada, mesmo que o modelo "ache" que pode.
+TRECHOS_DO_PROMPT = [
+    "limite que nunca muda", "so prometa o que existe", "contexto_do_atendimento",
+    "voce e o atendente virtual da patas",
+]
+
+RESPOSTA_VAZAMENTO = (
+    "Não consigo compartilhar como funciono por dentro, mas posso te ajudar com agendamentos, preços e "
+    "dúvidas sobre os serviços da clínica. O que você precisa?"
+)
+
 # P6, dados de EXEMPLO (caso fictício): trocar pelos reais antes de qualquer uso com cliente.
 HOSPITAL_24H = (
     "Hospital Veterinário Vida Animal (24h): Rua das Acácias, 250, Jardim Exemplo, Guarulhos, "
@@ -94,6 +106,11 @@ def detectar_alerta(texto_do_tutor: str) -> bool:
 
 def parece_orientacao_de_saude(resposta: str) -> bool:
     return bool(_SAUDE.search(normalizar(resposta)))
+
+
+def vaza_instrucoes(resposta: str) -> bool:
+    texto = normalizar(resposta)
+    return any(trecho in texto for trecho in TRECHOS_DO_PROMPT)
 
 
 def limpar_resposta(resposta: str) -> tuple[str, list[str]]:

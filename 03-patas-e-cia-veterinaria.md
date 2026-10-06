@@ -91,6 +91,8 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - P5 e P6 resolvidas com dados de exemplo (lista de sinais de alerta em 12 categorias; Hospital Vida Animal fictício)
 - Bloco 8 concluído: ADR 0007, src/patas/web/ (simulador de WhatsApp e painel da Joyce), 97 testes
 - Bloco 9 concluído: ADR 0008, rastreio na tabela execucao, página /operacao, cache do histórico (custo medido: US$ 0,0095 por mensagem, 86% da entrada vindo do cache), 101 testes
-- Bloco atual: 10 (avaliação do agente)
+- Bloco 10 concluído (montado e pilotado): ADR 0009, evals/ com 30 casos, corretor programático testado, executor; piloto achou e corrigiu 2 bugs reais; rodada completa de base adiada (≈ US$ 2,70); reforços de segurança (rede de segurança, vazamento, teto por conversa); 141 testes
+- Bloco 11 concluído (preparado, sem publicar): ADR 0010, Dockerfile testado, src/patas/servidor.py, CI no GitHub Actions, guia em docs/deploy.md
+- Bloco atual: 12 (case de portfólio)
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2

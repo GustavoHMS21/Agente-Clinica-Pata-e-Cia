@@ -27,3 +27,4 @@ packages = ["src/patas"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # para os testes importarem o pacote evals/

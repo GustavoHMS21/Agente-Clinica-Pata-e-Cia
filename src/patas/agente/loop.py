@@ -27,14 +27,28 @@ log = logging.getLogger(__name__)
 
 MAX_ITERACOES = 8  # chamadas ao modelo por turno; um agendamento completo usa 3 ou 4
 MAX_FALHAS_POR_FERRAMENTA = 3  # depois disso, a ferramenta fica bloqueada no turno
+MAX_TURNOS_POR_CONVERSA = 40  # uma conversa de recepção raramente passa de 10; acima de 40 é abuso ou loop
+
+RESPOSTA_LIMITE_DE_CONVERSA = "Para continuar, a Joyce, da recepção, vai seguir com você por aqui."
 
 RESPOSTA_FALHA = "Tive um problema para concluir seu pedido. Já passei para a Joyce, da recepção, e ela te responde por aqui."
 RESPOSTA_RECUSA = "Esse assunto eu prefiro deixar com a equipe. Já passei para a Joyce, e ela te responde por aqui."
-CHAMADA_REPETIDA = json.dumps({"ok": False, "erro": {
-    "codigo": "ARGUMENTO_INVALIDO",
-    "mensagem": "Essa mesma chamada, com os mesmos argumentos, já falhou neste turno. Não foi executada de novo.",
-    "proximo_passo": "Leia o erro anterior e mude os argumentos, pergunte ao tutor o que falta ou chame passar_para_joyce.",
-}}, ensure_ascii=False)
+MAX_REPETICOES = 3  # chamadas idênticas a uma que já falhou: depois disso o turno para (piloto do bloco 10)
+
+
+def chamada_repetida(erro_original: str) -> str:
+    """Barra a repetição e REPETE o erro original: o modelo pode ter perdido de vista o que estava errado."""
+    try:
+        original = json.loads(erro_original)["erro"]
+    except (ValueError, KeyError, TypeError):
+        original = {"mensagem": "", "proximo_passo": ""}
+    return json.dumps({"ok": False, "erro": {
+        "codigo": "ARGUMENTO_INVALIDO",
+        "mensagem": "Essa mesma chamada, com os mesmos argumentos, já falhou neste turno e não foi executada de "
+                    f"novo. O erro foi: {original.get('mensagem', '')}",
+        "proximo_passo": original.get("proximo_passo") or "Mude os argumentos, pergunte ao tutor o que falta ou "
+                                                          "chame passar_para_joyce.",
+    }}, ensure_ascii=False)
 FERRAMENTA_BLOQUEADA = json.dumps({"ok": False, "erro": {
     "codigo": "ARGUMENTO_INVALIDO",
     "mensagem": "Essa ferramenta já falhou várias vezes neste turno e foi bloqueada até a próxima mensagem do tutor.",
@@ -71,7 +85,12 @@ class Agente:
             return None
         ctx = turno.contexto
         inicio = time.perf_counter()
-        texto, desfecho = self._turno(turno)
+        try:
+            texto, desfecho = self._turno(turno)
+        except Exception:
+            # Rede de segurança: bug nosso ou banco travado nunca deixam o tutor sem resposta.
+            log.exception("Erro inesperado no turno %s da conversa %s", ctx.turno, ctx.conversa_id)
+            texto, desfecho = self._resposta_de_emergencia(ctx), "erro_interno"
         # O registro do turno resume tudo: desfecho e tempo total que o tutor esperou.
         self._conversas.rastrear(Execucao(ctx.conversa_id, ctx.turno, ctx.agora, "turno", desfecho, "ok",
                                           _ms(inicio)))
@@ -92,12 +111,20 @@ class Agente:
                 # Fora do horário, nada de improviso sobre saúde: resposta fixa, sem chamar o modelo.
                 return self._responder_fixo(ctx, guardrails.RESPOSTA_URGENCIA_FECHADO), "urgencia_fora_do_horario"
 
+        # Teto por conversa: abuso ou loop de mensagens não vira conta infinita de LLM.
+        if ctx.turno > MAX_TURNOS_POR_CONVERSA:
+            if ctx.turno == MAX_TURNOS_POR_CONVERSA + 1:
+                self._passar(ctx, "pedido_do_tutor", False,
+                             f"Conversa passou de {MAX_TURNOS_POR_CONVERSA} mensagens; o atendimento automático parou.")
+            return self._responder_fixo(ctx, RESPOSTA_LIMITE_DE_CONVERSA), "limite_de_conversa"
+
         # Contexto do turno: mensagem de sistema logo depois do tutor, gravada no histórico (ADR 0008).
         contexto = prompt.contexto_do_turno(ctx.agora, ctx.tutor_id is not None, aberta, turno.estado, alerta)
         self._conversas.registrar(ctx, Papel.SISTEMA, [{"type": "text", "text": contexto}])
         system = prompt.system()
         messages = list(turno.historico) + [{"role": "system", "content": contexto}]
-        falhas: set[str] = set()  # chamadas que já falharam neste turno: não repetimos (custo e loop)
+        falhas: dict[str, str] = {}  # chamada que já falhou neste turno -> erro original (não repetimos)
+        repeticoes = 0
         falhas_por_ferramenta: Counter[str] = Counter()  # mesma ferramenta errando com argumentos diferentes
 
         for _ in range(MAX_ITERACOES):
@@ -133,13 +160,14 @@ class Agente:
                 inicio = time.perf_counter()
                 assinatura = json.dumps([chamada["name"], chamada["input"]], sort_keys=True, ensure_ascii=False)
                 if assinatura in falhas:
-                    conteudo, erro = CHAMADA_REPETIDA, True
+                    repeticoes += 1
+                    conteudo, erro = chamada_repetida(falhas[assinatura]), True
                 elif falhas_por_ferramenta[chamada["name"]] >= MAX_FALHAS_POR_FERRAMENTA:
                     conteudo, erro = FERRAMENTA_BLOQUEADA, True
                 else:
                     conteudo, erro = self._executor.executar(chamada["name"], chamada["input"], ctx)
                     if erro:
-                        falhas.add(assinatura)
+                        falhas[assinatura] = conteudo
                         falhas_por_ferramenta[chamada["name"]] += 1
                 self._rastrear_ferramenta(ctx, chamada["name"], conteudo, erro, _ms(inicio))
                 resultado = {"type": "tool_result", "tool_use_id": chamada["id"], "content": conteudo}
@@ -148,6 +176,11 @@ class Agente:
                 resultados.append(resultado)
             messages.append({"role": "user", "content": resultados})
             self._conversas.registrar(ctx, Papel.FERRAMENTA, resultados)
+            if repeticoes >= MAX_REPETICOES:
+                # O modelo insiste na mesma chamada errada: parar já custa menos que gastar os passos que restam.
+                log.warning("Modelo repetindo chamada que falhou na conversa %s", ctx.conversa_id)
+                return self._encerrar_com_falha(ctx, "erro", "O atendimento automático repetiu uma chamada que falhava.",
+                                                RESPOSTA_FALHA), "limite_de_passos"
 
         log.warning("Limite de %s iterações na conversa %s", MAX_ITERACOES, ctx.conversa_id)
         return self._encerrar_com_falha(ctx, "erro", "O atendimento automático passou do limite de passos.",
@@ -160,6 +193,9 @@ class Agente:
             log.warning("Resposta ajustada na conversa %s: %s", ctx.conversa_id, ", ".join(problemas))
         if not texto:
             return self._encerrar_com_falha(ctx, "erro", "O modelo terminou sem texto.", RESPOSTA_FALHA), "sem_texto"
+        if guardrails.vaza_instrucoes(texto):
+            log.warning("Resposta bloqueada por vazar instruções internas na conversa %s", ctx.conversa_id)
+            return self._responder_fixo(ctx, guardrails.RESPOSTA_VAZAMENTO), "vazamento_bloqueado"
         if guardrails.parece_orientacao_de_saude(texto):
             log.warning("Resposta bloqueada por parecer orientação de saúde na conversa %s", ctx.conversa_id)
             return self._encerrar_com_falha(ctx, "saude", "Resposta automática bloqueada: parecia orientação de saúde.",
@@ -179,6 +215,18 @@ class Agente:
     def _responder_fixo(self, ctx: Contexto, texto: str) -> str:
         self._conversas.registrar(ctx, Papel.AGENTE, [{"type": "text", "text": texto}])
         return texto
+
+    def _resposta_de_emergencia(self, ctx: Contexto) -> str:
+        """Último recurso: cada passo pode falhar de novo (o banco pode ser o problema)."""
+        try:
+            self._agenda.passar_para_joyce(ctx, "erro", False, "Erro inesperado no atendimento automático.")
+        except Exception:
+            log.exception("Passagem de emergência falhou na conversa %s", ctx.conversa_id)
+        try:
+            self._conversas.registrar(ctx, Papel.AGENTE, [{"type": "text", "text": RESPOSTA_FALHA}])
+        except Exception:
+            log.exception("Registro da resposta de emergência falhou na conversa %s", ctx.conversa_id)
+        return RESPOSTA_FALHA
 
     # Rastreio -----------------------------------------------------------------
 

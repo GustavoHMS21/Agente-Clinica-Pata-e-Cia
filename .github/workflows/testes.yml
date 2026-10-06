@@ -1,0 +1,29 @@
+# CI (bloco 11): a cada push e pull request, roda os testes e confere que a imagem Docker constrói.
+# Os testes usam LLM falso: nenhuma chave e nenhum custo aqui. Nenhum segredo é necessário.
+name: testes
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Instalar dependências (versões travadas no uv.lock)
+        run: uv sync --frozen
+      - name: Testes
+        run: uv run pytest -q
+
+  imagem:
+    runs-on: ubuntu-latest
+    needs: testes
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir a imagem Docker
+        run: docker build -t patas-agente .

@@ -89,15 +89,18 @@ FERRAMENTAS = [
         "Valida um horário e monta o resumo para o tutor aprovar. NÃO marca nada. Mostre ao tutor o resumo "
         "e os avisos devolvidos e espere ele responder. Número sem cadastro exige nome_tutor.",
         {
-            "servico_id": {"type": "string"},
+            "servico_id": {"type": "string", "description": "Primeira vacina do animal: o id da VACINA (o sistema "
+                                                           "monta consulta + vacina)."},
             **_ANIMAL,
             "nome_animal": {"type": "string", "description": 'Só quando animal_id = "novo", se o tutor disser o nome.'},
+            # Obrigatório de propósito: opcional, o modelo omitia o campo mesmo sabendo o nome (piloto do bloco 10).
+            "nome_tutor": {"type": "string", "description": 'Nome do tutor quando o telefone NÃO tem cadastro; "" '
+                                                          "quando tem."},
             "inicio": _DATA_HORA,
             "observacao": {"type": "string", "description": "Queixa do tutor, anotada sem comentário (até 300 caracteres)."},
-            "nome_tutor": {"type": "string", "description": "Nome do tutor, só para número sem cadastro."},
             "profissional_id": {**_PROFISSIONAL_ID, "description": "O profissional_id da opção escolhida em buscar_horarios."},
         },
-        ["servico_id", "animal_id", "inicio"],
+        ["servico_id", "animal_id", "nome_tutor", "inicio"],
     ),
     _ferramenta(
         "propor_remarcacao",

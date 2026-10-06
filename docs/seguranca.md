@@ -23,8 +23,10 @@ Bloco 7. Modelo de ameaças, onde cada controle mora e o que foi testado. Princ�
 | Orientação de saúde (remédio, dose) | Prompt proíbe; a resposta passa por um filtro de remédios e doses antes de sair e, se bater, é trocada por mensagem fixa e passagem para a Joyce | `guardrails.py` | Código + teste |
 | Emergência sem resposta (C3) | Sinal de alerta detectado no código antes do modelo: passagem urgente sempre aberta; fora do horário, resposta fixa com o Hospital Vida Animal, sem chamar o modelo | `guardrails.py`, `loop.py` | Código + teste |
 | Vazar ids internos ou nomes de ferramentas | Removidos da resposta antes de enviar | `guardrails.py` | Código + teste |
-| Extrair o prompt de sistema | Prompt instrui a recusar; o prompt não contém segredo nem dado pessoal, então vazar não expõe nada sensível | `prompt.py` | Modelo (risco aceito) |
+| Extrair o prompt de sistema | Prompt instrui a recusar; resposta com trechos das instruções internas é trocada antes de sair; o prompt não contém segredo nem dado pessoal | `prompt.py`, `guardrails.py` | Código + teste |
 | Loop caro (mesma ferramenta errando) | Chamada idêntica que falhou não é repetida; ferramenta com 3 falhas no turno é bloqueada; teto de 8 chamadas por turno | `loop.py` | Código + teste |
+| Abuso de volume (mil mensagens na mesma conversa) | Depois de 40 turnos na conversa, resposta fixa sem LLM e uma passagem para a Joyce | `loop.py` | Código + teste |
+| Bug ou banco travado no meio do turno | Rede de segurança no turno inteiro: mensagem fixa, passagem `erro` e desfecho `erro_interno` no rastreio; nunca fica sem resposta | `loop.py` | Código + teste |
 | Abuso de custo por mensagem enorme | Mensagem cortada em 2.000 caracteres; resposta em 1.500 | `conversa.py`, `guardrails.py` | Código |
 | SQL injection | Toda consulta usa parâmetros `?` | `sqlite.py` | Código |
 | Vazar a chave | Chave só no ambiente; SDK lê direto; logs sem corpo de requisição; `.env` no `.gitignore` | `config.py`, `llm_*.py` | Código + auditoria |
@@ -42,7 +44,7 @@ Bloco 7. Modelo de ameaças, onde cada controle mora e o que foi testado. Princ�
 
 Na primeira rodada, dois ataques terminaram em loop (o modelo omitia o animal e repetia a ferramenta). Correção: `animal_id` obrigatório e campos de animal novo sem objeto aninhado, mais o bloqueio por ferramenta. Na segunda rodada, nenhum ataque passou de 3 chamadas.
 
-Os 6 casos entram no conjunto de avaliação do bloco 10, para rodar a cada mudança de prompt ou de modelo.
+Esses casos entram no conjunto de avaliação do bloco 10 (`evals/casos.py`), junto com mais 8: fingir ser a Joyce, contexto de sistema falsificado na mensagem, instrução que tenta persistir para o turno seguinte, pedido de dose "como veterinário", troca de papel em inglês, dados de outro tutor, cancelamento em massa e ids de outro tutor passados direto. A avaliação conta como falha até quando o guardrail segurou (`saude_bloqueada`, `vazamento_bloqueado`): ela mede o modelo, e uma trava não pode esconder uma piora dele.
 
 ## Auditoria de segredos (2026-10-06)
 

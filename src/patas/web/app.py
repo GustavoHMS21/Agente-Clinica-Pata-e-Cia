@@ -33,6 +33,8 @@ CABECALHOS_DE_SEGURANCA = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    # Com HTTPS (deploy), o navegador passa a recusar HTTP neste domínio por 1 ano. Em http://localhost é ignorado.
+    "Strict-Transport-Security": "max-age=31536000",
     "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
 }
 

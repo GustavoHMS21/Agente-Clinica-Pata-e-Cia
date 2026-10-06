@@ -29,6 +29,9 @@ fora do horário, indica o {hospital}.
 envia é a veterinária.
 - Banho e tosa: vacinas em dia são obrigatórias (pedimos a carteirinha); animal com pulga ou \
 carrapato paga taxa extra; atraso de mais de 20 minutos perde o horário.
+- Primeira vacina do animal na clínica: a veterinária avalia e aplica no mesmo horário (consulta + \
+vacina, os dois valores somados). Para marcar, use o serviço DA VACINA (ex.: vacina_v10): o sistema \
+já monta consulta + vacina e devolve o preço certo na proposta. Não marque consulta separada.
 - Preços, durações e regras de cada serviço: sempre pela ferramenta consultar_servicos.
 
 ## Limite que nunca muda: saúde do animal

@@ -189,6 +189,19 @@ def test_chamada_que_falhou_nao_e_repetida(montar, conversas):
     assert "já falhou" in segunda["erro"]["mensagem"]
 
 
+def test_repetir_a_mesma_chamada_errada_encerra_o_turno_cedo(montar, conversas):
+    # Visto no piloto do bloco 10: a mesma chamada sem nome_tutor, em dobro, até o limite de passos.
+    errada = {"servico_id": "banho", "data_inicio": "2026-10-08"}
+    roteiro = [RespostaLLM("tool_use", [
+        {"type": "tool_use", "id": f"tu_{i}a", "name": "buscar_horarios", "input": errada},
+        {"type": "tool_use", "id": f"tu_{i}b", "name": "buscar_horarios", "input": errada},
+    ]) for i in range(MAX_ITERACOES)]
+    llm, agente = montar(roteiro)
+    assert falar(conversas, agente, "Tem banho quinta?", T0) == RESPOSTA_FALHA
+    assert len(llm.chamadas) == 2  # parou na segunda chamada, não na oitava
+    assert "O erro foi: Faltou o animal_id" in resultado(llm.chamadas[1])["erro"]["mensagem"]
+
+
 def test_ferramenta_que_falha_com_argumentos_variados_e_bloqueada(montar, conversas):
     # Visto no ataque 5: o modelo variava profissional_id e nunca mandava o animal.
     llm, agente = montar([

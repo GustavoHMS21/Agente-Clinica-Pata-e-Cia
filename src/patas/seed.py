@@ -11,7 +11,7 @@ import sqlite3
 import sys
 from datetime import date, datetime, timedelta
 
-from patas.config import caminho_banco
+from patas.config import agora_local, caminho_banco
 from patas.repositorio.sqlite import conectar, criar_schema
 
 SEG_A_SEX = range(0, 5)
@@ -227,7 +227,7 @@ def main() -> int:
 
     conn = conectar(caminho)
     criar_schema(conn)
-    popular(conn, date.today())
+    popular(conn, agora_local().date())  # data de Guarulhos, não a do servidor (que pode estar em UTC)
     conn.close()
     print(f"Banco criado em {caminho}")
     return 0
