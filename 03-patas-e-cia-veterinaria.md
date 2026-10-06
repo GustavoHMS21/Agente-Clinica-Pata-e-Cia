@@ -85,7 +85,7 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
   - 4b: regras puras (src/patas/dominio/regras.py) e serviço de agenda (src/patas/dominio/agenda.py), 31 testes
 - Bloco 5 concluído: ADR 0004, tabelas conversa e mensagem, src/patas/dominio/conversa.py, 39 testes no total
 - Bloco 6 concluído: ADR 0005, src/patas/agente/ (prompt, ferramentas, llm, loop), chat de terminal
-- Provedor trocável (ADR 0006): Claude Sonnet 5.5 em uso; Gemini e Ollama (ollama/Modelfile) disponíveis pelo .env; 63 testes
+- Provedor trocável (ADR 0006): Claude Sonnet 5.5 em uso; Gemini como alternativa pelo .env; 63 testes
 - Conversa real validada: preço, horário, proposta, confirmação no banco, recusa de promessa, urgência de saúde
 - Bloco 7 concluído: src/patas/agente/guardrails.py, docs/seguranca.md, 6 ataques reais barrados, auditoria de segredos limpa, 82 testes
 - P5 e P6 resolvidas com dados de exemplo (lista de sinais de alerta em 12 categorias; Hospital Vida Animal fictício)
@@ -99,3 +99,4 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Pendência: publicar (docs/deploy.md), opcional
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2
+- Limpeza para entrega (2026-10-06): removidos chat de terminal, provedor Ollama, resultados do piloto e o campo valida_ate; trava por conversa no servidor; contexto do Gemini no topo; corrigida a confirmação dupla (única falha da avaliação completa, 97%); agendamento simples 7/7 na variante v1

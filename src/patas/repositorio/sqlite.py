@@ -122,12 +122,9 @@ class AgendaSQLite:
 
     def listar_vacinas(self, animal_id: str) -> list[Vacina]:
         rows = self._conn.execute(
-            "SELECT * FROM vacina WHERE animal_id = ? ORDER BY valida_ate DESC", (animal_id,)
+            "SELECT * FROM vacina WHERE animal_id = ? ORDER BY aplicada_em DESC", (animal_id,)
         )
-        return [
-            Vacina(r["animal_id"], r["nome"], date.fromisoformat(r["aplicada_em"]), date.fromisoformat(r["valida_ate"]))
-            for r in rows
-        ]
+        return [Vacina(r["animal_id"], r["nome"], date.fromisoformat(r["aplicada_em"])) for r in rows]
 
     def criar_tutor_provisorio(self, nome: str, telefone: str) -> Tutor:
         tutor = Tutor(novo_id("t"), nome, telefone, provisorio=True)
@@ -193,6 +190,10 @@ class AgendaSQLite:
     def nome_profissional(self, profissional_id: str) -> str | None:
         r = self._conn.execute("SELECT nome FROM profissional WHERE id = ?", (profissional_id,)).fetchone()
         return r["nome"] if r else None
+
+    def tipo_profissional(self, profissional_id: str) -> str | None:
+        r = self._conn.execute("SELECT tipo FROM profissional WHERE id = ?", (profissional_id,)).fetchone()
+        return r["tipo"] if r else None
 
     def listar_dias_especiais(self, de: date, ate: date) -> dict[date, Janela | None]:
         rows = self._conn.execute(

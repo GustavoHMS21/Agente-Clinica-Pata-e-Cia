@@ -214,22 +214,22 @@ def popular(conn: sqlite3.Connection, hoje: date) -> None:
         ],
     )
 
-    # (animal_id, nome, aplicada_em, valida_ate)
+    # (animal_id, nome, aplicada_em). Validade: 1 ano da aplicação (P3), calculada pela regra.
     conn.executemany(
-        "INSERT INTO vacina (animal_id, nome, aplicada_em, valida_ate) VALUES (?, ?, ?, ?)",
+        "INSERT INTO vacina (animal_id, nome, aplicada_em) VALUES (?, ?, ?)",
         [
-            ("a_thor", "v10", dias(-165), dias(200)),
-            ("a_thor", "antirrabica", dias(-215), dias(150)),
-            ("a_mel", "v10", dias(-245), dias(120)),
-            ("a_mel", "antirrabica", dias(-368), dias(-3)),  # C2: venceu, vacina já marcada
-            ("a_luna", "v10", dias(-100), dias(265)),
-            ("a_luna", "antirrabica", dias(-100), dias(265)),
-            ("a_frajola", "v5", dias(-400), dias(-35)),  # C6: vencida
-            ("a_frajola", "antirrabica", dias(-400), dias(-35)),
-            ("a_nina", "v10", dias(-30), dias(335)),
-            ("a_max", "v10", dias(-60), dias(305)),
-            ("a_zeus", "v10", dias(-20), dias(345)),
-            ("a_zeus", "antirrabica", dias(-20), dias(345)),
+            ("a_thor", "v10", dias(-165)),
+            ("a_thor", "antirrabica", dias(-215)),
+            ("a_mel", "v10", dias(-245)),
+            ("a_mel", "antirrabica", dias(-368)),  # C2: venceu, vacina já marcada
+            ("a_luna", "v10", dias(-100)),
+            ("a_luna", "antirrabica", dias(-100)),
+            ("a_frajola", "v5", dias(-400)),  # C6: vencida
+            ("a_frajola", "antirrabica", dias(-400)),
+            ("a_nina", "v10", dias(-30)),
+            ("a_max", "v10", dias(-60)),
+            ("a_zeus", "v10", dias(-20)),
+            ("a_zeus", "antirrabica", dias(-20)),
         ],
     )
 

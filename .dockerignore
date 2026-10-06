@@ -27,5 +27,4 @@ data/
 tests/
 evals/
 docs/
-ollama/
 *.md

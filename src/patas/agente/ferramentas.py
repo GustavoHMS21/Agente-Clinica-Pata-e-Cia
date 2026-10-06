@@ -294,7 +294,7 @@ class Executor:
         return {
             "inicio": o.inicio.isoformat(timespec="minutes"),
             "rotulo": rotulo(o.inicio),
-            "profissional": self._agenda.nome_profissional(o.profissional_id),
+            "profissional": self._agenda.nome_para_tutor(o.profissional_id),
             "profissional_id": o.profissional_id,
             "duracao_min": int((o.fim - o.inicio).total_seconds() // 60),
         }
@@ -305,7 +305,7 @@ class Executor:
             "agendamento_id": a.id,
             "servico": servico.nome if servico else a.servico_id,
             "rotulo": rotulo(a.inicio),
-            "profissional": self._agenda.nome_profissional(a.profissional_id),
+            "profissional": self._agenda.nome_para_tutor(a.profissional_id),
             "preco": reais(a.preco_centavos),
             "status": a.status.value,
         }

@@ -19,10 +19,10 @@ def test_porte_pelo_peso_nos_limites(peso, porte):
 
 def test_vacina_equivalente_vale_e_validade_conta_da_aplicacao():
     # P3: V8 vale como V10, V4 como V5; toda vacina vale 1 ano a partir da aplicação.
-    cao = [Vacina("a", "v8", date(2026, 3, 1), date(2099, 1, 1)), Vacina("a", "antirrabica", date(2026, 3, 1), date(2099, 1, 1))]
+    cao = [Vacina("a", "v8", date(2026, 3, 1)), Vacina("a", "antirrabica", date(2026, 3, 1))]
     assert regras.vacinas_pendentes(Especie.CAO, cao, date(2027, 3, 1)) == []
     assert regras.vacinas_pendentes(Especie.CAO, cao, date(2027, 3, 2)) == ["antirrabica", "v10"]
-    gato = [Vacina("g", "v4", date(2026, 5, 10), date(2026, 5, 10)), Vacina("g", "antirrabica", date(2026, 5, 10), date(2026, 5, 10))]
+    gato = [Vacina("g", "v4", date(2026, 5, 10)), Vacina("g", "antirrabica", date(2026, 5, 10))]
     assert regras.vacinas_pendentes(Especie.GATO, gato, date(2026, 10, 1)) == []
     assert regras.vence_em(date(2028, 2, 29)) == date(2029, 2, 28)
 
@@ -39,8 +39,8 @@ def test_pascoa_e_feriados_moveis():
 
 def test_vacina_conta_na_data_do_banho_nao_na_de_hoje():
     vacinas = [
-        Vacina("a", "v10", date(2025, 10, 7), date(2026, 10, 7)),
-        Vacina("a", "antirrabica", date(2026, 1, 1), date(2027, 1, 1)),
+        Vacina("a", "v10", date(2025, 10, 7)),
+        Vacina("a", "antirrabica", date(2026, 1, 1)),
     ]
     assert regras.vacinas_pendentes(Especie.CAO, vacinas, date(2026, 10, 7)) == []
     assert regras.vacinas_pendentes(Especie.CAO, vacinas, date(2026, 10, 8)) == ["v10"]

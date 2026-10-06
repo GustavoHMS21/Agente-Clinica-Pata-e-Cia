@@ -56,10 +56,11 @@ class Animal:
 
 @dataclass(frozen=True)
 class Vacina:
+    """A validade não é guardada: é calculada pela regra (1 ano da aplicação, P3)."""
+
     animal_id: str
     nome: str
     aplicada_em: date
-    valida_ate: date
 
 
 @dataclass(frozen=True)

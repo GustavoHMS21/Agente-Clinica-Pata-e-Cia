@@ -10,6 +10,7 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 from collections.abc import Iterator
 from datetime import date, timedelta
 from importlib import resources
@@ -124,13 +125,23 @@ def montar_app(llm: ClienteLLM, banco: Path | str, usuario: str, senha: str) -> 
     def tutores(conn: sqlite3.Connection = Depends(conexao)) -> list[dict]:
         return PainelSQLite(conn).tutores_para_simulador()
 
+    travas: dict[str, threading.Lock] = {}
+    guarda_das_travas = threading.Lock()
+
+    def trava_da_conversa(conversa_id: str) -> threading.Lock:
+        with guarda_das_travas:
+            return travas.setdefault(conversa_id, threading.Lock())
+
     @app.post("/api/mensagens", dependencies=escrita)
     def mensagem(entrada: MensagemEntrada, conn: sqlite3.Connection = Depends(conexao)) -> dict:
         agenda_repo, atendimento_repo = AgendaSQLite(conn), AtendimentoSQLite(conn)
         conversas = ServicoConversa(agenda_repo, atendimento_repo)
-        agora = agora_local()
-        conversa = conversas.receber(entrada.telefone, entrada.texto, agora)
-        resposta = Agente(llm, ServicoAgenda(agenda_repo, atendimento_repo), conversas).responder(conversa.id, agora)
+        conversa = conversas.receber(entrada.telefone, entrada.texto, agora_local())
+        # Um turno por vez em cada conversa: duas mensagens rápidas não rodam o agente em paralelo
+        # (o histórico se embaralharia). A segunda espera e responde o que ainda estiver pendente.
+        with trava_da_conversa(conversa.id):
+            agente = Agente(llm, ServicoAgenda(agenda_repo, atendimento_repo), conversas)
+            resposta = agente.responder(conversa.id, agora_local())
         return {"resposta": resposta or ""}
 
     @app.get("/api/passagens", dependencies=login)

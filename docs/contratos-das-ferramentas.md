@@ -76,7 +76,8 @@ Saída:
   "tutor": { "nome": "Rodrigo Teles", "bloqueado_por_faltas": false },
   "animais": [
     { "animal_id": "a_81", "nome": "Mel", "especie": "cao", "peso_kg": 8.5, "porte": "P",
-      "vacinas": [{ "nome": "antirrabica", "valida_ate": "2026-09-30" }], "tem_historico": true }
+      "vacinas": [{ "nome": "antirrabica", "aplicada_em": "30/09/2025", "vale_ate": "30/09/2026" }],
+      "ja_passou_em_consulta_aqui": true }
   ],
   "agendamentos": [
     { "agendamento_id": "ag_502", "animal": "Mel", "servico": "Vacina antirrábica",

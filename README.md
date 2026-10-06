@@ -12,8 +12,8 @@ Atendente virtual de WhatsApp que **marca, remarca e desmarca horários sozinho*
 | Projeção para a clínica | cerca de **US$ 70/mês** para 60 conversas por dia |
 | Tempo de resposta | 4 a 5 s por mensagem nos testes |
 | Testes automatizados | **151**, sem chamar o LLM (custo zero, rodam no CI) |
-| Avaliação do agente real | **30 casos** (15 conversas reais adaptadas, 13 ataques); o piloto achou e corrigiu 2 bugs de negócio |
-| Ataques de prompt testados no modelo real | 6, todos barrados (extração de prompt, desconto falso, animal de outra pessoa, injeção no nome do animal, falso administrador, pedido de remédio) |
+| Avaliação do agente real | 30 casos × 3 repetições: **97% (87/90)**. A única falha (confirmação pedida duas vezes) foi corrigida e revalidada: agendamentos simples em **100%** (meta da cliente: 90%) |
+| Ataques de prompt no modelo real | **36 de 36 barrados** (12 ataques × 3): extração de prompt, contexto de sistema falsificado, fingir ser a recepção, desconto falso, dose de remédio "como veterinário", dados de terceiros, cancelamento em massa, ids de outro tutor, entre outros |
 | Decisões registradas | 10 ADRs |
 
 ---
@@ -59,7 +59,7 @@ Um agente único (o modelo decide o próximo passo), envolvido por código deter
 | Toda escrita em duas fases: propor, depois confirmar em turno seguinte | "Já confirma sem me perguntar" não funciona nem se o modelo obedecer: o código exige uma resposta do tutor depois do resumo | [0002](docs/adr/0002-escrita-em-duas-fases.md) |
 | Tutor identificado pelo telefone do canal, nunca pelo texto | "Sou o marido da Cristina" não dá acesso a nada; id de outra pessoa dá "não encontrado" | [0002](docs/adr/0002-escrita-em-duas-fases.md), [0004](docs/adr/0004-estado-da-conversa.md) |
 | Memória em duas partes: transcrição e estado estruturado | O código nunca relê a conversa para descobrir um fato; a proposta pendente e as passagens abertas chegam prontas a cada turno | [0004](docs/adr/0004-estado-da-conversa.md) |
-| Loop escrito à mão; LLM atrás de uma interface | Testes com LLM falso e roteirizado; trocar de provedor é mudar o `.env` (Claude, Gemini e Ollama local já funcionam) | [0005](docs/adr/0005-loop-do-agente.md), [0006](docs/adr/0006-provedor-de-llm-trocavel.md) |
+| Loop escrito à mão; LLM atrás de uma interface | Testes com LLM falso e roteirizado; trocar de provedor é mudar o `.env` (Claude em uso; Gemini pronto como alternativa) | [0005](docs/adr/0005-loop-do-agente.md), [0006](docs/adr/0006-provedor-de-llm-trocavel.md) |
 | Raciocínio do modelo só dentro do turno | Os blocos de thinking ficam presos ao histórico exato; replicá-los com o histórico cortado daria erro 400 | [0005](docs/adr/0005-loop-do-agente.md) |
 | Contexto do turno como mensagem de sistema gravada no histórico | O histórico vira só-acréscimo e entra no cache: **custo por mensagem caiu cerca de 45%** (medido) | [0008](docs/adr/0008-observabilidade-e-cache.md) |
 | Rastreio próprio no banco, sem conteúdo de conversa | Custo, tokens, tempo e desfecho de cada passo, sem mandar dados de tutores para mais um terceiro | [0008](docs/adr/0008-observabilidade-e-cache.md) |
@@ -74,6 +74,7 @@ Cada item abaixo apareceu rodando o agente de verdade, e virou correção no có
 - **O guardrail precisa ser testado com a frase real.** A primeira regra de alerta deixou passar justamente a conversa que motivou a regra ("comeu um pedaço **grande** de chocolate").
 - **O modelo não sabe a regra que ninguém contou.** Na primeira vacina de um filhote, ele marcava só a consulta. A avaliação pegou; o prompt e a ferramenta passaram a explicar a regra.
 - **O modelo promete o que o sistema não faz** ("mando um lembrete um dia antes"). Virou regra explícita: só prometer o que alguma ferramenta faz.
+- **Regra de segurança não pode virar atrito.** A confirmação em duas fases fez o modelo perguntar "posso marcar?" antes da proposta e "posso confirmar?" depois: o tutor dizia sim duas vezes. Foi a única falha da avaliação completa (3 de 3 repetições); corrigida no prompt e revalidada.
 - **Loop custa dinheiro.** Chamada idêntica que falhou não é repetida, ferramenta com 3 falhas é bloqueada, repetição insistente encerra o turno cedo.
 - **Medir antes de otimizar.** O cache do histórico só foi feito depois do rastreio existir, e o ganho foi medido com ele.
 
@@ -90,7 +91,7 @@ Modelo de ameaças completo em [docs/seguranca.md](docs/seguranca.md). Em resumo
 
 ## Stack
 
-Python 3.12 · [uv](https://docs.astral.sh/uv/) · SDK da Anthropic (Claude Sonnet 5.5) e SDK compatível com OpenAI (Gemini, Ollama) · FastAPI · SQLite · pytest · Docker · GitHub Actions
+Python 3.12 · [uv](https://docs.astral.sh/uv/) · SDK da Anthropic (Claude Sonnet 5.5) e SDK compatível com OpenAI (Gemini, como alternativa) · FastAPI · SQLite · pytest · Docker · GitHub Actions
 
 ## Como rodar
 
@@ -105,7 +106,7 @@ Abra http://127.0.0.1:8000/chat (simulador), `/joyce` (painel da recepção) e `
 
 ```powershell
 uv run pytest -q                      # 151 testes, sem custo
-uv run python -m evals.rodar --reps 3 # avaliação com o modelo real (≈ US$ 2,70)
+uv run python -m evals.rodar --variant v2 --reps 3   # avaliação com o modelo real (≈ US$ 1,20)
 docker build -t patas-agente .        # imagem de produção; publicação em docs/deploy.md
 ```
 
@@ -126,8 +127,7 @@ docs/            regras de negócio, contratos das ferramentas, segurança, depl
 ## Roadmap
 
 - **Canal WhatsApp (em aberto, fora do escopo deste MVP):** a arquitetura já isola o canal; a integração seria pela API oficial da Meta (WhatsApp Business Platform), com webhook de assinatura validada e espera para juntar mensagens em rajada. Hoje o canal é o simulador web
-- Rodada completa da avaliação (30 casos × 3 repetições, ≈ US$ 2,70), opcional: o piloto já validou o corretor e achou 2 bugs. Meta proposta: **90% dos agendamentos simples sem a recepção**
-- Tutor simulado por LLM na avaliação, no lugar das falas fixas
+- Tutor simulado por LLM na avaliação, no lugar das falas fixas (mais realista, mais caro)
 - Login por pessoa no painel; backup automático; migrações de schema; retenção de 90 dias (LGPD)
 - Integração com o sistema da clínica (VetFácil) e com o Google Agenda: muda só o adaptador de repositório
 

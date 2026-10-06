@@ -43,6 +43,19 @@ def test_historico_vira_chat_completions_na_ordem_certa():
     assert saida[3] == {"role": "tool", "tool_call_id": "c1", "content": "{\"ok\": true}"}
 
 
+def test_so_o_contexto_mais_recente_vai_no_topo():
+    messages = [
+        {"role": "user", "content": [{"type": "text", "text": "Oi"}]},
+        {"role": "system", "content": "<contexto>turno 1</contexto>"},
+        {"role": "assistant", "content": [{"type": "text", "text": "Oi!"}]},
+        {"role": "user", "content": [{"type": "text", "text": "Banho?"}]},
+        {"role": "system", "content": "<contexto>turno 2</contexto>"},
+    ]
+    saida = para_openai(SYSTEM, messages)
+    assert [m["role"] for m in saida] == ["system", "user", "assistant", "user"]
+    assert saida[0]["content"].endswith("<contexto>turno 2</contexto>") and "turno 1" not in saida[0]["content"]
+
+
 def test_resposta_com_tool_calls_vira_blocos_e_guarda_a_assinatura():
     mensagem = {"role": "assistant", "content": None, "tool_calls": [
         {"id": "c9", "type": "function", "function": {"name": "consultar_cadastro", "arguments": "{}"},
@@ -74,9 +87,3 @@ def test_fabrica_falha_cedo_sem_chave_e_sem_mostrar_valor(monkeypatch):
     monkeypatch.setenv("LLM_PROVEDOR", "provedor_inventado")
     with pytest.raises(RuntimeError, match="desconhecido"):
         cliente_do_ambiente()
-
-
-def test_ollama_local_nao_exige_chave(monkeypatch):
-    monkeypatch.setenv("LLM_PROVEDOR", "ollama")
-    monkeypatch.delenv("LLM_MODELO", raising=False)
-    assert cliente_do_ambiente() is not None  # só monta o cliente; nenhuma chamada de rede

@@ -79,14 +79,23 @@ def ferramentas_para_openai(tools: list[dict]) -> list[dict]:
 
 
 def para_openai(system: list[dict], messages: list[dict]) -> list[dict]:
-    """Histórico interno -> mensagens de chat completions."""
-    saida = [{"role": "system", "content": "\n\n".join(b["text"] for b in system if b.get("type") == "text")}]
+    """Histórico interno -> mensagens de chat completions.
+
+    Mensagem de sistema no meio da conversa (o contexto de cada turno, ADR 0008) é recurso da API da
+    Anthropic; nem todo provedor compatível aceita. Aqui só o contexto mais recente vale: ele vai junto
+    do prompt de sistema, no topo, e os contextos de turnos anteriores são descartados.
+    """
+    contextos = [m["content"] for m in messages if m["role"] == "system"]
+    topo = "\n\n".join(b["text"] for b in system if b.get("type") == "text")
+    if contextos:
+        ultimo = contextos[-1]
+        topo += "\n\n" + (ultimo if isinstance(ultimo, str) else "\n".join(b.get("text", "") for b in ultimo))
+    saida = [{"role": "system", "content": topo}]
     for m in messages:
         blocos = m["content"] if isinstance(m["content"], list) else [{"type": "text", "text": m["content"]}]
         if m["role"] == "system":
-            # Contexto do turno no meio da conversa (ADR 0008).
-            saida.append({"role": "system", "content": "\n".join(b["text"] for b in blocos if b.get("type") == "text")})
-        elif m["role"] == "user":
+            continue
+        if m["role"] == "user":
             # Resultados de ferramenta primeiro: respondem à chamada anterior. O texto novo do tutor vem depois.
             for b in blocos:
                 if b.get("type") == "tool_result":

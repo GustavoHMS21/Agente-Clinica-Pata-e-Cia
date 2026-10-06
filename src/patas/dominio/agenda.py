@@ -41,7 +41,8 @@ LIMITE_RESUMO = 500
 CONSULTA_DA_PRIMEIRA_VACINA = {Especie.CAO: "consulta_clinica", Especie.GATO: "consulta_felinos"}
 DURACAO_PRIMEIRA_VACINA = timedelta(minutes=45)
 VETERINARIA_DE_GATOS = "vet_camila"  # P1: gato é sempre com a Dra. Camila (consultório preparado para gato)
-AVISO_PORTE_ESTIMADO = "Porte estimado pela raça: a tosadora confirma quando ele chegar, e o valor pode mudar."
+NOME_DA_EQUIPE_DE_TOSA = "equipe de banho e tosa"
+AVISO_PORTE_ESTIMADO ="Porte estimado pela raça: a tosadora confirma quando ele chegar, e o valor pode mudar."
 CATEGORIAS = frozenset({"consulta", "vacina", "exame", "banho_tosa", "outros"})
 MOTIVOS_PASSAGEM = frozenset({
     "urgencia", "saude", "resultado_exame", "exame_ou_cirurgia", "retorno", "taxi_dog", "sem_permissao",
@@ -115,7 +116,14 @@ class ServicoAgenda:
         return self._agenda.obter_servico(servico_id)
 
     def nome_profissional(self, profissional_id: str) -> str:
+        """Nome real, para a Joyce."""
         return self._agenda.nome_profissional(profissional_id) or profissional_id
+
+    def nome_para_tutor(self, profissional_id: str) -> str:
+        """No banho e tosa, o tutor não escolhe tosadora: vê a equipe. Veterinária aparece pelo nome."""
+        if self._agenda.tipo_profissional(profissional_id) == "tosadora":
+            return NOME_DA_EQUIPE_DE_TOSA
+        return self.nome_profissional(profissional_id)
 
     def clinica_aberta(self, agora: datetime) -> bool:
         especiais = self._agenda.listar_dias_especiais(agora.date(), agora.date())
@@ -210,7 +218,7 @@ class ServicoAgenda:
             "nome_tutor": nome_tutor,
             "porte_estimado": porte_estimado.value if porte_estimado else None,
             "profissional_id": escolhido,
-            "profissional_nome": self._agenda.nome_profissional(escolhido),
+            "profissional_nome": self.nome_para_tutor(escolhido),
             "inicio": inicio.isoformat(timespec="minutes"),
             "fim": (inicio + pedido.duracao).isoformat(timespec="minutes"),
             "preco_centavos": pedido.preco_centavos,
@@ -248,7 +256,7 @@ class ServicoAgenda:
             "animal_nome": animal.nome,
             "inicio_antigo": agendamento.inicio.isoformat(timespec="minutes"),
             "profissional_id": escolhido,
-            "profissional_nome": self._agenda.nome_profissional(escolhido),
+            "profissional_nome": self.nome_para_tutor(escolhido),
             "inicio": novo_inicio.isoformat(timespec="minutes"),
             "fim": (novo_inicio + duracao).isoformat(timespec="minutes"),
             "preco_centavos": agendamento.preco_centavos,
@@ -262,7 +270,7 @@ class ServicoAgenda:
             "agendamento_id": agendamento.id,
             "servico_nome": self._agenda.obter_servico(agendamento.servico_id).nome,
             "animal_nome": self._agenda.obter_animal(agendamento.animal_id).nome,
-            "profissional_nome": self._agenda.nome_profissional(agendamento.profissional_id),
+            "profissional_nome": self.nome_para_tutor(agendamento.profissional_id),
             "inicio": agendamento.inicio.isoformat(timespec="minutes"),
             "preco_centavos": agendamento.preco_centavos,
             "avisos": self._avisos_em_cima_da_hora(agendamento, ctx),
@@ -506,7 +514,7 @@ class ServicoAgenda:
         return [profissional_id]
 
     def _erro_profissional(self, servico: Servico, permitidos: tuple[str, ...]) -> ErroRegra:
-        nomes = ", ".join(self._agenda.nome_profissional(p) for p in permitidos)
+        nomes = ", ".join(dict.fromkeys(self.nome_para_tutor(p) for p in permitidos))
         return ErroRegra(Codigo.REGRA_DO_SERVICO, f"{servico.nome} é feito por: {nomes}.")
 
     def _checar_data(self, ctx: Contexto, dia: date) -> None:

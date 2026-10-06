@@ -29,8 +29,7 @@ CREATE TABLE IF NOT EXISTS vacina (
     id          INTEGER PRIMARY KEY,
     animal_id   TEXT NOT NULL REFERENCES animal(id),
     nome        TEXT NOT NULL,
-    aplicada_em TEXT NOT NULL,
-    valida_ate  TEXT NOT NULL
+    aplicada_em TEXT NOT NULL                           -- validade: 1 ano da aplicação, calculada (P3)
 );
 CREATE INDEX IF NOT EXISTS idx_vacina_animal ON vacina (animal_id);
 

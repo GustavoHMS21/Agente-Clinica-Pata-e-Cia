@@ -22,9 +22,9 @@ Fontes: T = tabela de preços, D = descoberta (MD do cliente), C1 a C15 = conver
 | RN01 | Funciona seg a sex 8h–19h e sáb 8h–13h; domingo e feriado fechado | T | Determinística | Ferramenta + Prompt | A ferramenta só devolve horários válidos. Feriados ficam numa tabela no banco |
 | RN02 | Duração: consulta 30 min, vacina 15 min, banho de 1h a 2h30 pelo porte, tosa completa +30 min | T | Determinística | Ferramenta | A duração define o tamanho do horário. O modelo não calcula |
 | RN03 | Dermatologia só com a Dra. Paula, quinta 13h–19h | T, C9 | Determinística | Ferramenta | Quando não serve, o agente oferece clínica geral (C9). Isso é prompt |
-| RN04 | Consulta de felinos com a Dra. Camila | T | Determinística | Ferramenta | Ver P1 |
+| RN04 | Gato (consulta e vacina) sempre com a Dra. Camila, consulta de felinos R$ 170 | T, P1 | Determinística | Ferramenta | Encaixe de urgência é a Joyce que decide |
 | RN05 | Preço por serviço e porte | T | Conhecimento estruturado | Ferramenta (dados) | São ~40 linhas: consulta no banco, não RAG. O preço da confirmação sai da ferramenta, nunca do modelo |
-| RN06 | Porte pelo peso: P até 10 kg, M 10–20, G 20–35, GG acima de 35 | T, C1 | Determinística | Ferramenta | O agente pergunta o peso; não deduz pela raça. Ver P2 |
+| RN06 | Porte pelo peso: P até 10 kg, M 10–20, G 20–35, GG acima de 35 | T, C1 | Determinística | Ferramenta | Vale a última pesagem. Sem peso, porte estimado pela raça com aviso de que a tosadora confirma (P2) |
 | RN07 | Banho de gato só ter e qui, 8h–12h | T, C6 | Determinística | Ferramenta | |
 | RN08 | Banho exige vacinas em dia | T, C6 | Determinística | Ferramenta | É a dor de hoje (agendas separadas). A ferramenta de banho lê a carteira no mesmo banco. Vencida: o agente oferece a vacina antes. Ver P3 |
 | RN09 | Primeira vacina na clínica exige consulta no mesmo horário (consulta + vacina) | T, C10 | Determinística | Ferramenta | Animal sem histórico: a ferramenta converte em consulta + vacina e soma os preços |
@@ -43,7 +43,7 @@ Fontes: T = tabela de preços, D = descoberta (MD do cliente), C1 a C15 = conver
 | RN22 | Identificação pelo telefone cadastrado | D | Determinística | Ferramenta | O telefone vem do canal (metadado), nunca do texto da mensagem nem de argumento do modelo |
 | RN23 | Número que não é do tutor só consulta preço e pede pré-agendamento; não remarca nem cancela | D (caso do ex-marido), C11 | Determinística | Ferramenta + Joyce | Negar por padrão. A Joyce resolve quem é da família |
 | RN24 | Cliente ou animal novo: pré-agendamento que a Joyce confirma | D, C10 | Determinística | Ferramenta + Joyce | O sucesso da cliente foi definido para "cliente já cadastrado" |
-| RN25 | Remarcar ou desmarcar com pelo menos 2h de antecedência, sem multa | D | Determinística | Ferramenta | Menos de 2h: Joyce. Ver P4 |
+| RN25 | Remarcar ou desmarcar sem multa; com menos de 2h também pode e não é falta | D, P4 | Determinística | Ferramenta + Joyce | Em cima da hora, a Joyce recebe `vaga_liberada` para encaixar outro. Horário já começado: Joyce |
 | RN26 | Duas faltas sem aviso bloqueiam novo agendamento até falar com a Joyce | D | Determinística | Ferramenta + Joyce | Marcação no cadastro do tutor |
 | RN27 | Confirmar resumo (animal, serviço, data, profissional, preço) antes de marcar, remarcar ou cancelar | C2, C5, C11 | Determinística | Ferramenta + Prompt | Bloco 6: ferramenta em duas fases (propor, depois confirmar) |
 | RN28 | Mensagem de áudio | C7 | Fora do canal da v1 | Joyce (v1) | O canal de teste é texto. Roadmap: transcrição |

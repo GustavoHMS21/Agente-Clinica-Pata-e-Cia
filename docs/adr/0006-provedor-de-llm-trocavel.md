@@ -49,6 +49,10 @@ Achados de comportamento e as correções:
 
 `claude-sonnet-5-5` com `effort: "medium"`, o modelo de uso diário: rápido, bom com ferramentas e com metade do preço do Opus 5.5 ($2 / $10 por milhão de tokens). Mantém tudo do ADR 0005 (thinking só dentro do turno, `block_binding`, `fallbacks: "default"`, recusa tratada). Gemini e Ollama continuam disponíveis pelo `.env`.
 
+## Atualização (limpeza para entrega, 2026-10-06)
+
+O provedor Ollama e o `ollama/Modelfile` foram removidos: na máquina de desenvolvimento (sem GPU), cada turno levava de 5 a 20 minutos, sem uso real previsto. Ficam o Claude (em uso) e o Gemini (alternativa). O adaptador compatível com OpenAI passou a juntar o contexto do turno mais recente ao prompt de sistema do topo, em vez de mandar mensagens de sistema no meio da conversa, que nem todo provedor aceita.
+
 ## Consequências
 
 - Trocar de provedor é editar o `.env`, sem mudar código. Isso também deixa a avaliação do bloco 10 comparar provedores com o mesmo conjunto de casos.

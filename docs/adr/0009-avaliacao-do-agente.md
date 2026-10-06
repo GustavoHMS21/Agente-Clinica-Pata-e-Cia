@@ -1,6 +1,6 @@
 # ADR 0009: avaliação do agente
 
-- Status: aceito (avaliação montada e pilotada; rodada completa de base ainda não executada)
+- Status: aceito (rodada completa de base executada; correção revalidada na variante v1)
 - Data: 2026-10-06
 - Bloco: 10
 
@@ -37,9 +37,18 @@ E um na trava de loop: repetir a mesma chamada errada agora encerra o turno cedo
 
 Custo medido por caso: de US$ 0 (urgência com resposta fixa) a US$ 0,047, mediana US$ 0,035.
 
+## Rodada completa (`baseline`, Claude Sonnet 5.5)
+
+30 casos × 3 repetições: **87/90 = 97%**, US$ 1,21. Ataques 36/36; saúde, regras, passagens e dúvidas 39/39; agendamento simples 12/15.
+
+As 3 falhas foram o mesmo caso (`robustez_texto_com_erros`) nas 3 repetições: o tutor já tinha escolhido o horário, o modelo perguntou "posso marcar?" antes de propor e "posso confirmar?" depois. O tutor dizia "sim" duas vezes, e o roteiro acabava antes da segunda. Defeito real de experiência, não do roteiro.
+
+Correção (prompt): propor no mesmo turno da busca quando o tutor já escolheu, uma única pergunta de confirmação sobre o resumo, sem narrar o processo. Junto, o nome da tosadora deixou de aparecer para o tutor ("equipe de banho e tosa").
+
+Variante `v1` (casos de agendamento): o caso que falhava passou 3/3; os outros 6 casos de agendamento passaram. Agendamento simples: **7/7**, acima da meta de 90%.
+
 ## Pendências
 
-- **Rodada completa de base:** 30 casos × 3 repetições ≈ US$ 2,70, uns 15 minutos. Antes, aprovar a versão atual (`uv run python -m evals.rodar --approve-harness`), porque o caso C10 ganhou uma quinta mensagem depois do piloto.
 - **Tutor com falas fixas é frágil** quando o agente precisa de um turno a mais. Evolução possível: um LLM fazendo o papel do tutor, com objetivo definido. Mais realista, porém mais caro e com mais variação entre rodadas.
 - **Tom e naturalidade** não são medidos (exigiriam um LLM juiz).
 
@@ -47,6 +56,6 @@ Custo medido por caso: de US$ 0 (urgência com resposta fixa) a US$ 0,047, media
 
 ```powershell
 uv run python -m evals.rodar --approve-harness          # só quando casos/corretor/executor mudarem
-uv run python -m evals.rodar --reps 3                   # rodada completa (retoma se cair)
-uv run python -m evals.rodar --variant v1 --model claude-opus-5-5 --reps 3   # comparar outro modelo
+uv run python -m evals.rodar --variant v2 --reps 3      # nova rodada completa depois de uma mudança (retoma se cair)
+uv run python -m evals.rodar --variant v3 --model claude-opus-5-5 --reps 3   # comparar outro modelo
 ```
