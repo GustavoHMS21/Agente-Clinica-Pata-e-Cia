@@ -15,6 +15,9 @@ ANTECEDENCIA_MARCAR = timedelta(minutes=30)  # decisão do MVP: não oferecer ho
 LIMITE_FALTAS = 2  # RN26
 MEIO_DIA = 12
 
+# RN01: horário da clínica (dia_semana -> abre, fecha). Domingo não abre.
+FUNCIONAMENTO = {0: (8, 19), 1: (8, 19), 2: (8, 19), 3: (8, 19), 4: (8, 19), 5: (8, 13)}
+
 # RN08. Quais vacinas e com que validade é a pergunta P3 para a Beatriz.
 VACINAS_EXIGIDAS_BANHO = {
     Especie.CAO: frozenset({"v10", "antirrabica"}),
@@ -49,6 +52,12 @@ def bloqueado_por_faltas(tutor: Tutor) -> bool:
 def pode_alterar(inicio_agendamento: datetime, agora: datetime) -> bool:
     """RN25: remarcar ou desmarcar só com pelo menos 2h de antecedência."""
     return inicio_agendamento - agora >= ANTECEDENCIA_ALTERAR
+
+
+def dentro_do_funcionamento(momento: datetime) -> bool:
+    """RN01, sem considerar feriado (o serviço de agenda checa o feriado no banco)."""
+    horario = FUNCIONAMENTO.get(momento.weekday())
+    return horario is not None and horario[0] <= momento.hour < horario[1]
 
 
 def faixas_do_dia(dia: date, expediente: Iterable[Janela], janelas_servico: Iterable[Janela]) -> list[Intervalo]:

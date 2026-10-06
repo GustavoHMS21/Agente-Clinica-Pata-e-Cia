@@ -106,6 +106,15 @@ class ServicoAgenda:
             raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, f"Categoria desconhecida: {categoria}.")
         return self._agenda.listar_servicos(categoria)
 
+    def obter_servico(self, servico_id: str) -> Servico | None:
+        return self._agenda.obter_servico(servico_id)
+
+    def nome_profissional(self, profissional_id: str) -> str:
+        return self._agenda.nome_profissional(profissional_id) or profissional_id
+
+    def clinica_aberta(self, agora: datetime) -> bool:
+        return regras.dentro_do_funcionamento(agora) and not self._agenda.listar_feriados(agora.date(), agora.date())
+
     def cadastro(self, ctx: Contexto) -> Cadastro | None:
         tutor = self._tutor(ctx)
         if tutor is None:

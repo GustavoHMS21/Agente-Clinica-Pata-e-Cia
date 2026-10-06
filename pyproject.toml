@@ -3,7 +3,11 @@ name = "patas"
 version = "0.1.0"
 description = "Agente de agendamento da Patas & Cia Clínica Veterinária (MVP de portfólio)"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "anthropic>=1.11.0",
+    "openai>=3.24.0",
+    "python-dotenv>=1.2.4",
+]
 
 [dependency-groups]
 dev = ["pytest>=8.4"]
