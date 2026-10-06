@@ -16,8 +16,11 @@ from patas.dominio.ids import novo_id
 from patas.dominio.modelos import (
     Agendamento,
     Animal,
+    Conversa,
     Especie,
     Janela,
+    Mensagem,
+    Papel,
     Passagem,
     Porte,
     PrecoPorte,
@@ -284,25 +287,21 @@ class AtendimentoSQLite:
 
     def obter_proposta(self, proposta_id: str) -> Proposta | None:
         r = self._conn.execute("SELECT * FROM proposta WHERE id = ?", (proposta_id,)).fetchone()
-        if not r:
-            return None
-        return Proposta(
-            id=r["id"],
-            conversa_id=r["conversa_id"],
-            tipo=TipoProposta(r["tipo"]),
-            dados=json.loads(r["dados"]),
-            turno=r["turno"],
-            criada_em=datetime.fromisoformat(r["criada_em"]),
-            expira_em=datetime.fromisoformat(r["expira_em"]),
-            usada_em=_ler_dt(r["usada_em"]),
-            agendamento_id=r["agendamento_id"],
-        )
+        return _proposta(r) if r else None
 
     def marcar_proposta_usada(self, proposta_id: str, agendamento_id: str | None, quando: datetime) -> None:
         self._conn.execute(
             "UPDATE proposta SET usada_em = ?, agendamento_id = ? WHERE id = ?",
             (_dt(quando), agendamento_id, proposta_id),
         )
+
+    def proposta_pendente(self, conversa_id: str, agora: datetime) -> Proposta | None:
+        r = self._conn.execute(
+            "SELECT * FROM proposta WHERE conversa_id = ? AND usada_em IS NULL AND expira_em >= ?"
+            " ORDER BY criada_em DESC, rowid DESC LIMIT 1",
+            (conversa_id, _dt(agora)),
+        ).fetchone()
+        return _proposta(r) if r else None
 
     def registrar_passagem(self, passagem: Passagem) -> None:
         p = passagem
@@ -311,3 +310,96 @@ class AtendimentoSQLite:
             " VALUES (?, ?, ?, ?, ?, ?, ?)",
             (p.protocolo, p.conversa_id, p.tutor_id, p.motivo, int(p.urgente), p.resumo, _dt(p.criada_em)),
         )
+
+    def passagens_abertas(self, telefone: str) -> list[Passagem]:
+        rows = self._conn.execute(
+            "SELECT p.* FROM passagem p JOIN conversa c ON c.id = p.conversa_id"
+            " WHERE c.telefone = ? AND p.status = 'aberta' ORDER BY p.criada_em",
+            (telefone,),
+        )
+        return [
+            Passagem(r["protocolo"], r["conversa_id"], r["tutor_id"], r["motivo"], bool(r["urgente"]),
+                     r["resumo"], datetime.fromisoformat(r["criada_em"]))
+            for r in rows
+        ]
+
+    # Conversa ----------------------------------------------------------------
+
+    def buscar_conversa_recente(self, telefone: str, desde: datetime) -> Conversa | None:
+        r = self._conn.execute(
+            "SELECT * FROM conversa WHERE telefone = ? AND ultima_mensagem_em >= ?"
+            " ORDER BY ultima_mensagem_em DESC LIMIT 1",
+            (telefone, _dt(desde)),
+        ).fetchone()
+        return _conversa(r) if r else None
+
+    def obter_conversa(self, conversa_id: str) -> Conversa | None:
+        r = self._conn.execute("SELECT * FROM conversa WHERE id = ?", (conversa_id,)).fetchone()
+        return _conversa(r) if r else None
+
+    def criar_conversa(self, conversa: Conversa) -> None:
+        c = conversa
+        self._conn.execute(
+            "INSERT INTO conversa (id, telefone, iniciada_em, ultima_mensagem_em, turno) VALUES (?, ?, ?, ?, ?)",
+            (c.id, c.telefone, _dt(c.iniciada_em), _dt(c.ultima_mensagem_em), c.turno),
+        )
+
+    def adicionar_mensagem(self, mensagem: Mensagem) -> None:
+        m = mensagem
+        with transacao(self._conn):
+            self._conn.execute(
+                "INSERT INTO mensagem (conversa_id, turno, papel, conteudo, criada_em) VALUES (?, ?, ?, ?, ?)",
+                (m.conversa_id, m.turno, m.papel.value, json.dumps(m.conteudo, ensure_ascii=False),
+                 _dt(m.criada_em)),
+            )
+            self._conn.execute(
+                "UPDATE conversa SET ultima_mensagem_em = MAX(ultima_mensagem_em, ?) WHERE id = ?",
+                (_dt(m.criada_em), m.conversa_id),
+            )
+
+    def abrir_turno(self, conversa_id: str) -> int | None:
+        with transacao(self._conn):
+            pendentes = self._conn.execute(
+                "SELECT COUNT(*) FROM mensagem WHERE conversa_id = ? AND turno IS NULL", (conversa_id,)
+            ).fetchone()[0]
+            if not pendentes:
+                return None
+            self._conn.execute("UPDATE conversa SET turno = turno + 1 WHERE id = ?", (conversa_id,))
+            turno = self._conn.execute("SELECT turno FROM conversa WHERE id = ?", (conversa_id,)).fetchone()[0]
+            self._conn.execute(
+                "UPDATE mensagem SET turno = ? WHERE conversa_id = ? AND turno IS NULL", (turno, conversa_id)
+            )
+        return turno
+
+    def listar_mensagens(self, conversa_id: str, a_partir_do_turno: int) -> list[Mensagem]:
+        # Ordena por turno antes do id: mensagem que chegou durante o turno anterior entra no seguinte.
+        rows = self._conn.execute(
+            "SELECT * FROM mensagem WHERE conversa_id = ? AND turno >= ? ORDER BY turno, id",
+            (conversa_id, a_partir_do_turno),
+        )
+        return [
+            Mensagem(r["conversa_id"], r["turno"], Papel(r["papel"]), json.loads(r["conteudo"]),
+                     datetime.fromisoformat(r["criada_em"]))
+            for r in rows
+        ]
+
+
+def _proposta(r: sqlite3.Row) -> Proposta:
+    return Proposta(
+        id=r["id"],
+        conversa_id=r["conversa_id"],
+        tipo=TipoProposta(r["tipo"]),
+        dados=json.loads(r["dados"]),
+        turno=r["turno"],
+        criada_em=datetime.fromisoformat(r["criada_em"]),
+        expira_em=datetime.fromisoformat(r["expira_em"]),
+        usada_em=_ler_dt(r["usada_em"]),
+        agendamento_id=r["agendamento_id"],
+    )
+
+
+def _conversa(r: sqlite3.Row) -> Conversa:
+    return Conversa(
+        r["id"], r["telefone"], datetime.fromisoformat(r["iniciada_em"]),
+        datetime.fromisoformat(r["ultima_mensagem_em"]), r["turno"],
+    )

@@ -11,8 +11,10 @@ from typing import Protocol
 from patas.dominio.modelos import (
     Agendamento,
     Animal,
+    Conversa,
     Especie,
     Janela,
+    Mensagem,
     Passagem,
     Proposta,
     Servico,
@@ -71,4 +73,33 @@ class RepositorioAtendimento(Protocol):
     def salvar_proposta(self, proposta: Proposta) -> None: ...
     def obter_proposta(self, proposta_id: str) -> Proposta | None: ...
     def marcar_proposta_usada(self, proposta_id: str, agendamento_id: str | None, quando: datetime) -> None: ...
+    def proposta_pendente(self, conversa_id: str, agora: datetime) -> Proposta | None:
+        """A proposta mais recente desta conversa, ainda não usada e não expirada."""
+        ...
+
     def registrar_passagem(self, passagem: Passagem) -> None: ...
+    def passagens_abertas(self, telefone: str) -> list[Passagem]:
+        """De qualquer conversa deste telefone: a pendência sobrevive à troca de conversa."""
+        ...
+
+    # Conversa (ADR 0004)
+    def buscar_conversa_recente(self, telefone: str, desde: datetime) -> Conversa | None:
+        """A conversa deste telefone com mensagem a partir de `desde`, se houver."""
+        ...
+
+    def obter_conversa(self, conversa_id: str) -> Conversa | None: ...
+    def criar_conversa(self, conversa: Conversa) -> None: ...
+    def adicionar_mensagem(self, mensagem: Mensagem) -> None:
+        """Grava a mensagem e atualiza ultima_mensagem_em da conversa."""
+        ...
+
+    def abrir_turno(self, conversa_id: str) -> int | None:
+        """Incrementa o turno e coloca nele as mensagens pendentes do tutor. Atômico.
+
+        Devolve o novo turno, ou None se não havia mensagem pendente.
+        """
+        ...
+
+    def listar_mensagens(self, conversa_id: str, a_partir_do_turno: int) -> list[Mensagem]:
+        """Mensagens já processadas, em ordem de turno e de chegada."""
+        ...

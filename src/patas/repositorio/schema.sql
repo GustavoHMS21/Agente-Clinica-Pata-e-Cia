@@ -113,6 +113,26 @@ CREATE INDEX IF NOT EXISTS idx_agendamento_animal ON agendamento (animal_id);
 -- Atendimento: sempre no nosso banco
 -------------------------------------------------------------------------------
 
+-- Uma conversa acaba depois de 12h sem mensagem (ADR 0004).
+CREATE TABLE IF NOT EXISTS conversa (
+    id                 TEXT PRIMARY KEY,
+    telefone           TEXT NOT NULL,                   -- do canal, nunca do texto
+    iniciada_em        TEXT NOT NULL,
+    ultima_mensagem_em TEXT NOT NULL,
+    turno              INTEGER NOT NULL DEFAULT 0       -- execuções do agente (ADR 0004)
+);
+CREATE INDEX IF NOT EXISTS idx_conversa_telefone ON conversa (telefone, ultima_mensagem_em);
+
+CREATE TABLE IF NOT EXISTS mensagem (
+    id          INTEGER PRIMARY KEY,                    -- ordem de chegada dentro do turno
+    conversa_id TEXT NOT NULL REFERENCES conversa(id),
+    turno       INTEGER,                                -- NULL: do tutor, ainda não processada
+    papel       TEXT NOT NULL CHECK (papel IN ('tutor', 'agente', 'ferramenta')),
+    conteudo    TEXT NOT NULL,                          -- JSON: lista de blocos (text, tool_use, tool_result)
+    criada_em   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mensagem_conversa ON mensagem (conversa_id, turno);
+
 CREATE TABLE IF NOT EXISTS proposta (
     id             TEXT PRIMARY KEY,
     conversa_id    TEXT NOT NULL,

@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from patas.dominio.agenda import ServicoAgenda
+from patas.dominio.conversa import ServicoConversa
 from patas.repositorio.sqlite import AgendaSQLite, AtendimentoSQLite, conectar, criar_schema
 from patas.seed import popular
 
@@ -27,3 +28,8 @@ def agenda(conn):
 @pytest.fixture
 def servico(conn):
     return ServicoAgenda(AgendaSQLite(conn), AtendimentoSQLite(conn))
+
+
+@pytest.fixture
+def conversas(conn):
+    return ServicoConversa(AgendaSQLite(conn), AtendimentoSQLite(conn))

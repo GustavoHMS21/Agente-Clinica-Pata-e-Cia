@@ -83,6 +83,7 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Bloco 4 concluído
   - 4a: stack (ADR 0003), schema, interfaces de repositório, implementação SQLite, seed
   - 4b: regras puras (src/patas/dominio/regras.py) e serviço de agenda (src/patas/dominio/agenda.py), 31 testes
-- Bloco atual: 5 (estado da conversa)
+- Bloco 5 concluído: ADR 0004, tabelas conversa e mensagem, src/patas/dominio/conversa.py, 39 testes no total
+- Bloco atual: 6 (loop do agente, limites e confirmações)
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2

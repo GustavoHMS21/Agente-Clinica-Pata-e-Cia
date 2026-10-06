@@ -129,6 +129,30 @@ class Proposta:
     agendamento_id: str | None = None
 
 
+class Papel(StrEnum):
+    TUTOR = "tutor"
+    AGENTE = "agente"
+    FERRAMENTA = "ferramenta"
+
+
+@dataclass(frozen=True)
+class Conversa:
+    id: str
+    telefone: str
+    iniciada_em: datetime
+    ultima_mensagem_em: datetime
+    turno: int = 0
+
+
+@dataclass(frozen=True)
+class Mensagem:
+    conversa_id: str
+    turno: int | None
+    papel: Papel
+    conteudo: list[dict] = field(hash=False)  # blocos no formato da API (ADR 0004)
+    criada_em: datetime
+
+
 @dataclass(frozen=True)
 class Passagem:
     """Passagem da conversa para a Joyce."""
