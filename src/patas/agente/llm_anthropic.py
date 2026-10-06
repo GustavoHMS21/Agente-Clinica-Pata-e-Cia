@@ -1,11 +1,11 @@
-"""Adaptador Anthropic (Claude). Ver ADR 0005 para modelo, thinking e fallbacks."""
+"""Adaptador Anthropic (Claude). Ver ADR 0005 (thinking e fallbacks) e ADR 0006 (escolha do modelo)."""
 
 import anthropic
 
 from patas.agente.llm import FalhaLLM, RespostaLLM
 
-MODELO = "claude-opus-5-5"
-EFFORT = "medium"  # padrão do Opus 5.5, explícito. Ajustar com a avaliação do bloco 10.
+MODELO = "claude-sonnet-5-5"  # modelo do dia a dia: rápido e capaz em ferramentas, metade do preço do Opus
+EFFORT = "medium"  # ponto de partida para uso de ferramentas em vários passos (o padrão do Sonnet 5.5 é high)
 MAX_TOKENS = 16000  # teto de thinking + resposta por chamada
 TIMEOUT_S = 60.0
 TENTATIVAS = 2  # o SDK repete sozinho 408, 409, 429, 5xx e falha de conexão

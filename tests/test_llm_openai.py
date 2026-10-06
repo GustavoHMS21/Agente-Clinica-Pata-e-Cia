@@ -74,3 +74,9 @@ def test_fabrica_falha_cedo_sem_chave_e_sem_mostrar_valor(monkeypatch):
     monkeypatch.setenv("LLM_PROVEDOR", "provedor_inventado")
     with pytest.raises(RuntimeError, match="desconhecido"):
         cliente_do_ambiente()
+
+
+def test_ollama_local_nao_exige_chave(monkeypatch):
+    monkeypatch.setenv("LLM_PROVEDOR", "ollama")
+    monkeypatch.delenv("LLM_MODELO", raising=False)
+    assert cliente_do_ambiente() is not None  # só monta o cliente; nenhuma chamada de rede

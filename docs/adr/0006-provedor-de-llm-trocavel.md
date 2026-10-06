@@ -29,6 +29,26 @@ O primeiro teste real com o Claude falhou por falta de crédito na conta da API.
 
 A regra do ADR 0005 vale para os dois: dentro do turno, tudo volta intacto; entre turnos, o banco guarda só texto e ferramentas.
 
+## O que os testes reais mostraram (2026-10-06)
+
+| Provedor | Resultado |
+| --- | --- |
+| Claude (`claude-opus-5-5`) | Chave válida; conta sem crédito de API. Não testado de ponta a ponta |
+| **Claude (`claude-sonnet-5-5`), escolhido** | Créditos resolvidos. Conversa completa (preço, horário, proposta, confirmação, recusa de lembrete, urgência de saúde com passagem para a Joyce) em cerca de 40 s para 4 turnos, de 1 a 4 s por chamada |
+| Gemini, plano gratuito | Chave válida. Os 3.5 a 3.8 Flash davam 503 (alta demanda). O `gemini-2.5-flash` fez a conversa completa (preço, horário, proposta, confirmação no banco), mas a cota gratuita é de **20 requisições por dia por modelo**, uns 7 turnos. Serve para demonstração, não para desenvolver |
+| Ollama local (`qwen3:8b`) | Funciona e escolhe as ferramentas certas, mas o Ollama usa **janela de 4.096 tokens** por padrão, e o prompt + ferramentas já ocupam cerca de 3.000. Corrigido com `ollama/Modelfile` (variante `patas-qwen3`, 16k tokens). Em CPU, de 30 s a 3 min por chamada |
+
+Achados de comportamento e as correções:
+- O modelo pedia o peso do animal em vez de consultar o cadastro. Virou regra explícita no prompt: "cadastro primeiro".
+- O modelo prometeu "lembrete um dia antes", que nenhuma ferramenta faz. Virou regra explícita: "só prometa o que existe".
+- Com `strict: true`, o JSON dos argumentos segue a ordem das propriedades do schema. Em `buscar_horarios`, `animal_id` vinha depois das datas; o modelo pulava o campo e colocava o animal em `profissional_id`, repetindo a chamada até o limite de 8 passos. Correção: campos que identificam o pedido (serviço, animal) primeiro, opcionais raros por último, com descrição clara.
+- Campo opcional preenchido com `""` passou a valer como ausente (`_sem_vazios` no executor).
+- O loop não executa de novo uma chamada idêntica que já falhou no mesmo turno: devolve o erro na hora, sem gastar outra chamada.
+
+## Modelo escolhido
+
+`claude-sonnet-5-5` com `effort: "medium"`, o modelo de uso diário: rápido, bom com ferramentas e com metade do preço do Opus 5.5 ($2 / $10 por milhão de tokens). Mantém tudo do ADR 0005 (thinking só dentro do turno, `block_binding`, `fallbacks: "default"`, recusa tratada). Gemini e Ollama continuam disponíveis pelo `.env`.
+
 ## Consequências
 
 - Trocar de provedor é editar o `.env`, sem mudar código. Isso também deixa a avaliação do bloco 10 comparar provedores com o mesmo conjunto de casos.

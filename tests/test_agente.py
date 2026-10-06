@@ -159,8 +159,32 @@ def test_api_fora_do_ar_vira_mensagem_fixa_e_passagem(montar, conversas, conn):
     assert conn.execute("SELECT motivo FROM passagem").fetchone()["motivo"] == "erro"
 
 
+def test_chamada_que_falhou_nao_e_repetida(montar, conversas):
+    # Visto com o Sonnet 5.5: a mesma chamada errada 8 vezes seguidas até o limite de passos.
+    sem_animal = {"servico_id": "banho", "data_inicio": "2026-10-08"}
+    llm, agente = montar([
+        pensa_e_chama("buscar_horarios", sem_animal, "tu_1"),
+        pensa_e_chama("buscar_horarios", sem_animal, "tu_2"),
+        responde("Qual animal?"),
+    ])
+    falar(conversas, agente, "Tem horário de banho quinta?", T0)
+    primeira, segunda = resultado(llm.chamadas[1]), resultado(llm.chamadas[2])
+    assert "consultar_cadastro" in primeira["erro"]["proximo_passo"]
+    assert "já falhou" in segunda["erro"]["mensagem"]
+
+
+def test_campo_opcional_vazio_e_ausencia(servico):
+    from patas.dominio.agenda import Contexto
+    ctx = Contexto("c1", "5511900001101", "t_mariana", 1, T0)
+    entrada = {"servico_id": "banho", "data_inicio": "2026-10-08", "animal_id": "a_thor", "profissional_id": "",
+               "periodo": "manha"}
+    conteudo, erro = Executor(servico).executar("buscar_horarios", entrada, ctx)
+    assert not erro and json.loads(conteudo)["dados"]["opcoes"]
+
+
 def test_limite_de_iteracoes(montar, conversas):
-    roteiro = [pensa_e_chama("consultar_cadastro", {}, f"tu_{i}") for i in range(MAX_ITERACOES)]
+    roteiro = [pensa_e_chama("consultar_servicos", {"categoria": c}, f"tu_{i}")
+               for i, c in enumerate(["consulta", "vacina", "exame", "banho_tosa", "outros", "consulta", "vacina", "exame"])]
     llm, agente = montar(roteiro)
     assert falar(conversas, agente, "Oi", T0) == RESPOSTA_FALHA
     assert len(llm.chamadas) == MAX_ITERACOES

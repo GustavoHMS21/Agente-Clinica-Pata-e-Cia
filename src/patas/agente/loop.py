@@ -6,6 +6,7 @@ Regras do loop (ADR 0005):
 - Limite de iterações; recusa, corte por tamanho e falha da API viram mensagem fixa + passagem para a Joyce.
 """
 
+import json
 import logging
 
 from patas.agente import prompt
@@ -22,6 +23,11 @@ MAX_ITERACOES = 8  # chamadas ao modelo por turno; um agendamento completo usa 3
 
 RESPOSTA_FALHA = "Tive um problema para concluir seu pedido. Já passei para a Joyce, da recepção, e ela te responde por aqui."
 RESPOSTA_RECUSA = "Esse assunto eu prefiro deixar com a equipe. Já passei para a Joyce, e ela te responde por aqui."
+CHAMADA_REPETIDA = json.dumps({"ok": False, "erro": {
+    "codigo": "ARGUMENTO_INVALIDO",
+    "mensagem": "Essa mesma chamada, com os mesmos argumentos, já falhou neste turno. Não foi executada de novo.",
+    "proximo_passo": "Leia o erro anterior e mude os argumentos, pergunte ao tutor o que falta ou chame passar_para_joyce.",
+}}, ensure_ascii=False)
 
 
 def para_historico(blocos: list[dict]) -> list[dict]:
@@ -52,6 +58,7 @@ class Agente:
             agora, ctx.tutor_id is not None, self._agenda.clinica_aberta(agora), turno.estado
         ))
         messages = list(turno.historico)
+        falhas: set[str] = set()  # chamadas que já falharam neste turno: não repetimos (custo e loop)
 
         for _ in range(MAX_ITERACOES):
             try:
@@ -82,7 +89,13 @@ class Agente:
             # Todas as respostas das ferramentas voltam numa única mensagem, na ordem das chamadas.
             resultados = []
             for chamada in chamadas:
-                conteudo, erro = self._executor.executar(chamada["name"], chamada["input"], ctx)
+                assinatura = json.dumps([chamada["name"], chamada["input"]], sort_keys=True, ensure_ascii=False)
+                if assinatura in falhas:
+                    conteudo, erro = CHAMADA_REPETIDA, True
+                else:
+                    conteudo, erro = self._executor.executar(chamada["name"], chamada["input"], ctx)
+                    if erro:
+                        falhas.add(assinatura)
                 resultado = {"type": "tool_result", "tool_use_id": chamada["id"], "content": conteudo}
                 if erro:
                     resultado["is_error"] = True

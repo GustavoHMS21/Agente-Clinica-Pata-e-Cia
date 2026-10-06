@@ -21,6 +21,14 @@ log = logging.getLogger(__name__)
 
 _DATA = {"type": "string", "description": "Data no formato AAAA-MM-DD."}
 _DATA_HORA = {"type": "string", "description": "Data e hora no horário de Guarulhos, formato AAAA-MM-DDTHH:MM, sem fuso."}
+_ANIMAL_ID = {
+    "type": "string",
+    "description": "O animal_id que veio de consultar_cadastro (ex.: a_thor). Obrigatório quando o animal está no cadastro.",
+}
+_PROFISSIONAL_ID = {
+    "type": "string",
+    "description": "Id de profissional (ex.: vet_paula), nunca de animal. Omita se o tutor não pediu alguém específico.",
+}
 _ANIMAL_NOVO = {
     "type": "object",
     "description": "Animal que ainda não está no cadastro. Use só quando consultar_cadastro não trouxer o animal.",
@@ -70,14 +78,15 @@ FERRAMENTAS = [
         "Horários livres que já respeitam todas as regras do serviço e do animal (funcionamento, feriados, "
         "dias do serviço, porte, vacinas). Devolve até 5 opções, uma por turno de cada dia. "
         "Informe animal_id (animal cadastrado) ou animal_novo, nunca os dois.",
+        # Ordem importa: com strict, o JSON segue a ordem do schema. Quem é o pedido vem primeiro.
         {
             "servico_id": {"type": "string", "description": "Id vindo de consultar_servicos."},
+            "animal_id": _ANIMAL_ID,
+            "animal_novo": _ANIMAL_NOVO,
             "data_inicio": _DATA,
             "data_fim": {**_DATA, "description": "Último dia da busca (AAAA-MM-DD). Até 14 dias depois do início."},
-            "animal_id": {"type": "string"},
-            "animal_novo": _ANIMAL_NOVO,
             "periodo": {"type": "string", "enum": ["manha", "tarde"]},
-            "profissional_id": {"type": "string", "description": "Só quando o tutor pedir uma veterinária específica."},
+            "profissional_id": _PROFISSIONAL_ID,
         },
         ["servico_id", "data_inicio"],
     ),
@@ -87,19 +96,19 @@ FERRAMENTAS = [
         "e os avisos devolvidos e espere ele responder. Número sem cadastro exige nome_tutor.",
         {
             "servico_id": {"type": "string"},
-            "inicio": _DATA_HORA,
-            "animal_id": {"type": "string"},
+            "animal_id": _ANIMAL_ID,
             "animal_novo": _ANIMAL_NOVO,
-            "profissional_id": {"type": "string"},
+            "inicio": _DATA_HORA,
             "observacao": {"type": "string", "description": "Queixa do tutor, anotada sem comentário (até 300 caracteres)."},
             "nome_tutor": {"type": "string", "description": "Nome do tutor, só para número sem cadastro."},
+            "profissional_id": {**_PROFISSIONAL_ID, "description": "O profissional_id da opção escolhida em buscar_horarios."},
         },
         ["servico_id", "inicio"],
     ),
     _ferramenta(
         "propor_remarcacao",
         "Valida a troca de horário de um agendamento do tutor e monta o resumo. NÃO remarca nada.",
-        {"agendamento_id": {"type": "string"}, "novo_inicio": _DATA_HORA, "profissional_id": {"type": "string"}},
+        {"agendamento_id": {"type": "string"}, "novo_inicio": _DATA_HORA, "profissional_id": _PROFISSIONAL_ID},
         ["agendamento_id", "novo_inicio"],
     ),
     _ferramenta(
@@ -145,6 +154,7 @@ class Executor:
     def executar(self, nome: str, entrada: dict, ctx: Contexto) -> tuple[str, bool]:
         """Devolve (conteúdo JSON do tool_result, is_error)."""
         metodo = getattr(self, f"_{nome}", None) if nome in {f["name"] for f in FERRAMENTAS} else None
+        entrada = _sem_vazios(entrada)
         try:
             if metodo is None:
                 raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, f"Ferramenta desconhecida: {nome}.")
@@ -328,6 +338,17 @@ class Executor:
         if "pendentes" in dados:
             extras["vacinas_pendentes"] = dados["pendentes"]
         return extras
+
+
+def _sem_vazios(entrada: dict) -> dict:
+    """Campo opcional com "" ou null é ausência, não valor: modelos às vezes preenchem assim."""
+    limpa = {}
+    for chave, valor in (entrada or {}).items():
+        if isinstance(valor, dict):
+            valor = _sem_vazios(valor)
+        if valor not in ("", None, {}):
+            limpa[chave] = valor
+    return limpa
 
 
 def _json(valor: Any) -> str:

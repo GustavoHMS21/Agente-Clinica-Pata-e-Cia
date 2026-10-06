@@ -85,7 +85,8 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
   - 4b: regras puras (src/patas/dominio/regras.py) e serviço de agenda (src/patas/dominio/agenda.py), 31 testes
 - Bloco 5 concluído: ADR 0004, tabelas conversa e mensagem, src/patas/dominio/conversa.py, 39 testes no total
 - Bloco 6 concluído: ADR 0005, src/patas/agente/ (prompt, ferramentas, llm, loop), chat de terminal
-- Provedor trocável (ADR 0006): Gemini via API compatível com OpenAI, Claude mantido; 60 testes
+- Provedor trocável (ADR 0006): Claude Sonnet 5.5 em uso; Gemini e Ollama (ollama/Modelfile) disponíveis pelo .env; 63 testes
+- Conversa real validada: preço, horário, proposta, confirmação no banco, recusa de promessa, urgência de saúde
 - Bloco atual: 7 (guardrails e segurança)
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2

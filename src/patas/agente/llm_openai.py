@@ -16,7 +16,6 @@ import openai
 
 from patas.agente.llm import FalhaLLM, RespostaLLM
 
-TIMEOUT_S = 60.0
 TENTATIVAS = 2
 
 FIM_PARA_STOP_REASON = {
@@ -27,9 +26,9 @@ FIM_PARA_STOP_REASON = {
 
 
 class ClienteOpenAICompativel:
-    def __init__(self, base_url: str, modelo: str, chave: str) -> None:
+    def __init__(self, base_url: str, modelo: str, chave: str, timeout: float) -> None:
         # A chave vem do ambiente pela fábrica; fica só dentro do cliente HTTP, nunca em log.
-        self._cliente = openai.OpenAI(api_key=chave, base_url=base_url, timeout=TIMEOUT_S, max_retries=TENTATIVAS)
+        self._cliente = openai.OpenAI(api_key=chave, base_url=base_url, timeout=timeout, max_retries=TENTATIVAS)
         self._modelo = modelo
 
     def criar(self, system: list[dict], tools: list[dict], messages: list[dict]) -> RespostaLLM:
@@ -40,8 +39,11 @@ class ClienteOpenAICompativel:
                 tools=ferramentas_para_openai(tools),
                 tool_choice="auto",
             )
-        except (openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError) as e:
+        except openai.APIConnectionError as e:
             raise FalhaLLM(type(e).__name__) from e
+        except openai.RateLimitError as e:
+            # A mensagem diz qual cota estourou (por minuto ou por dia). Não contém a chave.
+            raise FalhaLLM(f"RateLimitError: {str(e.message)[:300]}") from e
         except openai.APIStatusError as e:
             raise FalhaLLM(f"{type(e).__name__} status={e.status_code}: {e.message}") from e
 
