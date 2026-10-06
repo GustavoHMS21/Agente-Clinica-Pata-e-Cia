@@ -93,6 +93,7 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Bloco 9 concluído: ADR 0008, rastreio na tabela execucao, página /operacao, cache do histórico (custo medido: US$ 0,0095 por mensagem, 86% da entrada vindo do cache), 101 testes
 - Bloco 10 concluído (montado e pilotado): ADR 0009, evals/ com 30 casos, corretor programático testado, executor; piloto achou e corrigiu 2 bugs reais; rodada completa de base adiada (≈ US$ 2,70); reforços de segurança (rede de segurança, vazamento, teto por conversa); 141 testes
 - Bloco 11 concluído (preparado, sem publicar): ADR 0010, Dockerfile testado, src/patas/servidor.py, CI no GitHub Actions, guia em docs/deploy.md
-- Bloco atual: 12 (case de portfólio)
+- Bloco 12 concluído: README.md como case de portfólio (números medidos, arquitetura, decisões, lições, roadmap); CI verde no GitHub (testes e imagem)
+- Pendências para virar produto: rodada completa da avaliação (≈ US$ 2,70), publicar (docs/deploy.md), adaptador do WhatsApp, P1 a P8 com a Beatriz
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2
