@@ -6,11 +6,22 @@ devolve o valor da chave.
 """
 
 import os
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
 RAIZ = Path(__file__).resolve().parents[2]
+FUSO_DA_CLINICA = ZoneInfo("America/Sao_Paulo")
+
+
+def agora_local() -> datetime:
+    """Hora de Guarulhos, sem fuso e em minutos (o formato do banco, ADR 0003).
+
+    Não usa o relógio local da máquina: no deploy o servidor costuma rodar em UTC.
+    """
+    return datetime.now(FUSO_DA_CLINICA).replace(tzinfo=None, second=0, microsecond=0)
 
 
 def carregar_ambiente() -> None:

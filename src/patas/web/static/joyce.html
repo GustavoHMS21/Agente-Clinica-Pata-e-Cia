@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel da Joyce</title>
+<style>
+  :root { --verde: #075e54; --texto: #1f2933; --cinza: #6b7280; --borda: #e5e7eb; --urgente: #b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--texto); background: #f3f4f6; }
+  header { background: var(--verde); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  header h1 { font-size: 16px; margin: 0; }
+  header a { color: #fff; font-size: 14px; }
+  main { max-width: 1000px; margin: 16px auto; padding: 0 16px; display: grid; gap: 16px; }
+  section { background: #fff; border-radius: 8px; padding: 16px; }
+  h2 { font-size: 16px; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .vazio { color: var(--cinza); font-size: 14px; margin: 0; }
+  .cartao { border: 1px solid var(--borda); border-left: 4px solid #9ca3af; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; display: grid; gap: 4px; }
+  .cartao.urgente { border-left-color: var(--urgente); background: #fef2f2; }
+  .linha { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+  .selo { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #e5e7eb; }
+  .urgente .selo { background: var(--urgente); color: #fff; }
+  .resumo { font-size: 14px; margin: 0; }
+  .meta { font-size: 12px; color: var(--cinza); }
+  button { font: inherit; font-size: 13px; border: 1px solid var(--verde); color: var(--verde); background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; justify-self: start; }
+  .tabela { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+  th { font-size: 12px; color: var(--cinza); font-weight: 600; }
+  .pendente { color: #92400e; font-weight: 600; }
+  input[type=date] { font: inherit; font-size: 14px; padding: 4px 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Patas &amp; Cia · Painel da Joyce</h1>
+  <a href="/chat">Simulador de WhatsApp</a>
+</header>
+<main>
+  <section>
+    <h2>Passagens abertas <span class="meta" id="atualizado"></span></h2>
+    <div id="passagens"></div>
+  </section>
+  <section>
+    <h2>Agenda <input type="date" id="dia" aria-label="Dia da agenda"></h2>
+    <div class="tabela"><table>
+      <thead><tr><th>Hora</th><th>Animal</th><th>Tutor</th><th>Serviço</th><th>Profissional</th><th>Situação</th><th>Observação</th></tr></thead>
+      <tbody id="agenda"></tbody>
+    </table></div>
+    <p class="vazio" id="agenda-vazia" hidden>Nenhum agendamento neste dia.</p>
+  </section>
+</main>
+<script>
+// Tudo que vem do banco (resumo, nomes, observação) entra como texto, nunca como HTML.
+const MOTIVOS = {
+  urgencia: "Urgência de saúde", saude: "Dúvida de saúde", resultado_exame: "Resultado de exame",
+  exame_ou_cirurgia: "Exame ou cirurgia", retorno: "Retorno", taxi_dog: "Táxi dog",
+  sem_permissao: "Pedido sobre animal de outra pessoa", prazo_curto: "Menos de 2h para o horário",
+  faltas: "Bloqueado por faltas", cadastro_novo: "Pré-agendamento: confirmar cadastro",
+  fora_do_escopo: "Fora do escopo", pedido_do_tutor: "Tutor pediu atendimento humano", erro: "Falha do atendimento automático",
+};
+
+function el(tag, texto, classe) {
+  const e = document.createElement(tag);
+  if (texto !== undefined) e.textContent = texto;
+  if (classe) e.className = classe;
+  return e;
+}
+
+function telefone(t) {
+  const d = (t || "").replace(/\D/g, "").replace(/^55/, "");
+  return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : t;
+}
+
+function quando(iso) {
+  const [d, h] = iso.split("T");
+  const [, mes, dia] = d.split("-");
+  return `${dia}/${mes} ${h}`;
+}
+
+async function carregarPassagens() {
+  const lista = document.getElementById("passagens");
+  const passagens = await (await fetch("/api/passagens")).json();
+  lista.replaceChildren();
+  if (!passagens.length) lista.appendChild(el("p", "Nenhuma pendência. 🎉", "vazio"));
+  for (const p of passagens) {
+    const cartao = el("div", undefined, "cartao" + (p.urgente ? " urgente" : ""));
+    const topo = el("div", undefined, "linha");
+    topo.appendChild(el("span", MOTIVOS[p.motivo] || p.motivo, "selo"));
+    topo.appendChild(el("span", `${p.protocolo} · ${quando(p.criada_em)}`, "meta"));
+    cartao.appendChild(topo);
+    cartao.appendChild(el("span", `${p.tutor || "Número sem cadastro"} · ${telefone(p.telefone)}`));
+    cartao.appendChild(el("p", p.resumo, "resumo"));
+    const botao = el("button", "Marcar como resolvida");
+    botao.addEventListener("click", async () => {
+      botao.disabled = true;
+      const r = await fetch(`/api/passagens/${encodeURIComponent(p.protocolo)}/resolver`,
+                            { method: "POST", headers: { "X-Requested-With": "patas" } });
+      if (r.ok) cartao.remove(); else botao.disabled = false;
+    });
+    cartao.appendChild(botao);
+    lista.appendChild(cartao);
+  }
+  document.getElementById("atualizado").textContent =
+    "atualizado às " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+async function carregarAgenda() {
+  const campo = document.getElementById("dia");
+  const dados = await (await fetch("/api/agenda" + (campo.value ? `?dia=${campo.value}` : ""))).json();
+  if (!campo.value) campo.value = dados.dia;
+  const corpo = document.getElementById("agenda");
+  corpo.replaceChildren();
+  document.getElementById("agenda-vazia").hidden = dados.agendamentos.length > 0;
+  for (const a of dados.agendamentos) {
+    const linha = document.createElement("tr");
+    linha.appendChild(el("td", `${a.inicio.slice(11)}–${a.fim.slice(11)}`));
+    linha.appendChild(el("td", a.animal));
+    linha.appendChild(el("td", `${a.tutor} · ${telefone(a.telefone)}`));
+    linha.appendChild(el("td", a.servico));
+    linha.appendChild(el("td", a.profissional));
+    const pendente = a.status === "pendente_joyce";
+    linha.appendChild(el("td", pendente ? "Confirmar cadastro" : "Confirmado", pendente ? "pendente" : ""));
+    linha.appendChild(el("td", a.observacao || ""));
+    corpo.appendChild(linha);
+  }
+}
+
+document.getElementById("dia").addEventListener("change", carregarAgenda);
+carregarPassagens();
+carregarAgenda();
+setInterval(() => { carregarPassagens(); carregarAgenda(); }, 15000);
+</script>
+</body>
+</html>

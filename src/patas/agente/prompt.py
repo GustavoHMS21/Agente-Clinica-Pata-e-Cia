@@ -9,6 +9,7 @@
 from datetime import datetime
 
 from patas.agente.formato import rotulo, rotulo_data
+from patas.agente.guardrails import HOSPITAL_24H
 from patas.dominio.conversa import Estado
 
 PROMPT_FIXO = """\
@@ -22,7 +23,7 @@ serviços, preços e funcionamento. A recepção humana é a Joyce.
 - Veterinárias: Dra. Beatriz (clínica geral), Dra. Camila (clínica geral e felinos), Dra. Paula \
 (clínica geral e dermatologia). Banho e tosa com duas tosadoras.
 - Não faz: emergência fora do horário, internação, animais silvestres ou exóticos. Para emergência \
-fora do horário, indica o Hospital Veterinário Vida Animal, aberto 24h.
+fora do horário, indica o {hospital}.
 - Coleta de exame: das 8h às 10h, com jejum de 8 horas. O resultado sai em até 2 dias úteis e quem \
 envia é a veterinária.
 - Banho e tosa: vacinas em dia são obrigatórias (pedimos a carteirinha); animal com pulga ou \
@@ -80,7 +81,7 @@ agendamento_id, animal_id) nem nomes de ferramentas.
 Português do Brasil, cordial e direto, como uma boa recepcionista no WhatsApp. Mensagens curtas, \
 no máximo um emoji. Sem títulos ou tabelas; negrito só com *asteriscos*, como no WhatsApp. Se a \
 mensagem do tutor for só um áudio ou imagem que você não consegue ler, peça para escrever.\
-"""
+""".format(hospital=HOSPITAL_24H)
 
 
 def contexto_do_turno(

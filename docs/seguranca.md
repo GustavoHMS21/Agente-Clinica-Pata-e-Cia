@@ -62,6 +62,5 @@ Os 6 casos entram no conjunto de avaliação do bloco 10, para rodar a cada muda
 
 ## Pendências
 
-- **P5:** a Beatriz valida a lista de sinais de alerta (`SINAIS_DE_ALERTA` em `guardrails.py`).
-- **P6:** endereço e telefone do Hospital Vida Animal para a resposta fixa.
+- P5 e P6 resolvidas com dados de exemplo (docs/regras-de-negocio.md). Com cliente real, repetir a validação.
 - O filtro de saúde da resposta é por palavras: barato e previsível, mas não pega orientação sem remédio ou dose. A avaliação do bloco 10 mede se precisa de um classificador com LLM.

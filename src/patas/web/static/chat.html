@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador WhatsApp</title>
+<style>
+  :root { --verde: #075e54; --claro: #dcf8c6; --fundo: #ece5dd; --texto: #1f2933; --cinza: #6b7280; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--texto); background: #f3f4f6; }
+  header { background: var(--verde); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  header h1 { font-size: 16px; margin: 0; }
+  header a { color: #fff; font-size: 14px; }
+  main { max-width: 760px; margin: 16px auto; padding: 0 16px; }
+  .controles { background: #fff; border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
+  .controles label { font-size: 13px; color: var(--cinza); }
+  select, input, button, textarea { font: inherit; }
+  select, input[type=text] { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+  .nota { font-size: 12px; color: var(--cinza); margin: 0; }
+  .conversa { background: var(--fundo); border-radius: 8px; margin-top: 12px; padding: 12px; height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .msg { max-width: 80%; padding: 8px 10px; border-radius: 8px; line-height: 1.4; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,.08); white-space: normal; word-wrap: break-word; }
+  .tutor { align-self: flex-end; background: var(--claro); }
+  .agente { align-self: flex-start; background: #fff; }
+  .hora { display: block; text-align: right; font-size: 11px; color: var(--cinza); margin-top: 2px; }
+  .digitando { align-self: flex-start; font-size: 13px; color: var(--cinza); font-style: italic; }
+  form { display: flex; gap: 8px; margin-top: 12px; }
+  form input { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 20px; }
+  form button { background: var(--verde); color: #fff; border: 0; border-radius: 20px; padding: 0 18px; cursor: pointer; }
+  form button:disabled { opacity: .5; cursor: wait; }
+  .erro { color: #b91c1c; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Patas &amp; Cia · Simulador de WhatsApp</h1>
+  <a href="/joyce">Painel da Joyce</a>
+</header>
+<main>
+  <section class="controles">
+    <label for="tutor">Quem está escrevendo</label>
+    <select id="tutor"></select>
+    <input type="text" id="outro" placeholder="Telefone, ex.: (11) 90000-1110" hidden>
+    <p class="nota">No WhatsApp real o telefone vem do canal e o tutor não escolhe. Aqui você escolhe para testar cada caso. Trocar de tutor começa outra conversa.</p>
+  </section>
+  <section class="conversa" id="conversa" aria-live="polite"></section>
+  <form id="envio">
+    <input id="texto" autocomplete="off" placeholder="Digite uma mensagem" maxlength="4000" required>
+    <button id="enviar">Enviar</button>
+  </form>
+  <p class="erro" id="erro"></p>
+</main>
+<script>
+const conversa = document.getElementById("conversa");
+const seletor = document.getElementById("tutor");
+const outro = document.getElementById("outro");
+const campo = document.getElementById("texto");
+const botao = document.getElementById("enviar");
+const erro = document.getElementById("erro");
+
+function formatarTelefone(t) {
+  const d = t.replace(/\D/g, "").replace(/^55/, "");
+  return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : t;
+}
+
+// Texto do tutor e do agente entra sempre como texto, nunca como HTML (sem XSS).
+// Só o *negrito* do WhatsApp vira <strong>, montado nó a nó.
+function preencher(elemento, texto) {
+  texto.split("\n").forEach((linha, i) => {
+    if (i > 0) elemento.appendChild(document.createElement("br"));
+    linha.split(/(\*[^*\n]+\*)/).forEach(parte => {
+      if (/^\*[^*]+\*$/.test(parte)) {
+        const forte = document.createElement("strong");
+        forte.textContent = parte.slice(1, -1);
+        elemento.appendChild(forte);
+      } else if (parte) {
+        elemento.appendChild(document.createTextNode(parte));
+      }
+    });
+  });
+}
+
+function adicionar(texto, quem) {
+  const bolha = document.createElement("div");
+  bolha.className = `msg ${quem}`;
+  preencher(bolha, texto);
+  const hora = document.createElement("span");
+  hora.className = "hora";
+  hora.textContent = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  bolha.appendChild(hora);
+  conversa.appendChild(bolha);
+  conversa.scrollTop = conversa.scrollHeight;
+}
+
+function telefoneAtual() {
+  return seletor.value === "outro" ? outro.value.trim() : seletor.value;
+}
+
+async function carregarTutores() {
+  const resposta = await fetch("/api/tutores");
+  const tutores = await resposta.json();
+  for (const t of tutores) {
+    const opcao = document.createElement("option");
+    opcao.value = t.telefone;
+    opcao.textContent = `${t.nome} · ${formatarTelefone(t.telefone)}${t.animais ? " · " + t.animais : ""}`;
+    seletor.appendChild(opcao);
+  }
+  const novo = document.createElement("option");
+  novo.value = "outro";
+  novo.textContent = "Número sem cadastro (digitar)";
+  seletor.appendChild(novo);
+}
+
+seletor.addEventListener("change", () => {
+  outro.hidden = seletor.value !== "outro";
+  conversa.replaceChildren();
+  erro.textContent = "";
+});
+
+document.getElementById("envio").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const texto = campo.value.trim();
+  const telefone = telefoneAtual();
+  if (!texto || !telefone) { erro.textContent = "Escolha quem está escrevendo e digite a mensagem."; return; }
+  erro.textContent = "";
+  adicionar(texto, "tutor");
+  campo.value = "";
+  botao.disabled = true;
+  const digitando = document.createElement("div");
+  digitando.className = "digitando";
+  digitando.textContent = "Patas & Cia está digitando...";
+  conversa.appendChild(digitando);
+  conversa.scrollTop = conversa.scrollHeight;
+  try {
+    const resposta = await fetch("/api/mensagens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "patas" },
+      body: JSON.stringify({ telefone, texto }),
+    });
+    if (!resposta.ok) throw new Error(`erro ${resposta.status}`);
+    const dados = await resposta.json();
+    if (dados.resposta) adicionar(dados.resposta, "agente");
+  } catch (e) {
+    erro.textContent = `Não foi possível enviar (${e.message}).`;
+  } finally {
+    digitando.remove();
+    botao.disabled = false;
+    campo.focus();
+  }
+});
+
+carregarTutores();
+</script>
+</body>
+</html>

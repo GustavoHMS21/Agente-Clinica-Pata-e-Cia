@@ -55,11 +55,34 @@ Resumo: 16 regras têm código como dono ou co-dono, 11 passam pelo prompt e 10 
 
 Decidir se um caso é grave já é julgamento clínico, e o agente não pode fazer isso. Por isso ele não faz triagem: só reconhece sinais de alerta e passa adiante.
 
-- **Sinais de alerta** (lista curta, definida pela Beatriz, não por nós): ingeriu algo tóxico, vômito ou diarreia persistente, não come, sangramento, convulsão, falta de ar, atropelamento ou trauma.
+- **Sinais de alerta:** a lista abaixo, definida pela Beatriz, não por nós.
 - **Fora do horário:** resposta fixa vinda do código, com os dados do Hospital Vida Animal. O modelo não improvisa sobre saúde.
 - **Dentro do horário:** passa para a Joyce marcado como urgente; ela avisa a veterinária (C13).
 - **Detecção em duas camadas:** uma lista de palavras no código, antes do modelo, e o próprio agente pode chamar a passagem para a Joyce. Falso positivo é barato (a Joyce olha e libera); falso negativo foi a C3.
 - **Queixa comum** (coceira, mancando, C7 e C9) não é alerta: vira consulta normal, e o agente anota a queixa sem comentar.
+
+### Lista de sinais de alerta (P5)
+
+Validada pela Dra. Beatriz em 2026-10-06, numa reunião de 30 minutos. **Validação de exemplo: o caso é fictício.** No código: `SINAIS_DE_ALERTA` em `src/patas/agente/guardrails.py`, com um teste por categoria.
+
+| # | Categoria | Exemplo de frase | Por que é urgente |
+| --- | --- | --- | --- |
+| 1 | Ingestão tóxica | "comeu um pedaço grande de chocolate" (C3), "engoliu uma meia" | Chocolate, uva, cebola, xilitol e remédio humano intoxicam; corpo estranho obstrui o intestino |
+| 2 | Vômito ou diarreia; não come nem bebe | "vomitando desde ontem e não quer comer" (C13) | Desidrata rápido, sobretudo filhote e idoso |
+| 3 | Sangramento | "sangue no xixi" | Pode ser hemorragia interna ou intoxicação |
+| 4 | Convulsão, desmaio, prostração | "não consegue levantar" | Neurológico ou choque |
+| 5 | Dificuldade para respirar | "gengiva roxa", "engasgado" | Falta de oxigênio mata em minutos |
+| 6 | Trauma | "atropelado", "caiu da sacada", "brigou com outro cachorro" | Lesão interna nem sempre aparece |
+| 7 | Gato fazendo força e sem sair xixi | "forçando pra fazer xixi e não sai nada" | Obstrução urinária: fatal em 24 a 48h. O tutor quase nunca sabe que é grave |
+| 8 | Barriga inchada e dura, ânsia sem vomitar | "barriga inchada e dura" | Torção gástrica em cão grande: cirurgia de emergência |
+| 9 | Picada de peçonhento | "picado por escorpião" | Veneno |
+| 10 | Insolação | "muito ofegante depois do passeio" | Hipertermia lesa órgãos |
+| 11 | Parto difícil | "em trabalho de parto faz uma hora e nada" | Risco para mãe e filhotes |
+| 12 | Olho machucado ou saltado | "olho machucado" | Perda da visão |
+
+O que a Beatriz tirou da lista: queda de pelo, coceira, espirro leve, tártaro, mancar sem dor forte. Viram consulta normal.
+
+Revisão: a cada 6 meses ou quando a Joyce relatar um caso urgente que o agente não pegou.
 
 ## Perguntas abertas para a Beatriz
 
@@ -67,8 +90,8 @@ Decidir se um caso é grave já é julgamento clínico, e o agente não pode faz
 - **P2.** Animal com 10 kg ou 20 kg exatos fica em qual porte?
 - **P3.** Quais vacinas são exigidas para banho (V10 e antirrábica? V5 para gato?) e qual a validade de cada uma?
 - **P4.** Pedido de cancelamento com menos de 2h: o que acontece? Conta como falta?
-- **P5.** A Beatriz valida a lista de sinais de alerta da seção Urgência.
-- **P6.** Endereço e telefone do Hospital Vida Animal para a resposta fixa.
+- ~~**P5.** A Beatriz valida a lista de sinais de alerta.~~ Resolvida (exemplo): lista na seção Urgência.
+- ~~**P6.** Endereço e telefone do Hospital Vida Animal.~~ Resolvida com dados de exemplo: Rua das Acácias, 250, Jardim Exemplo, Guarulhos, (11) 90000-2424. Trocar pelos reais antes de uso com cliente.
 - **P7.** Durações não informadas na tabela. Assumimos: banho de gato 60 min, corte de unha 15 min, primeira vacina (consulta + vacina) 30 min.
 - **P8.** Lista de feriados (nacionais e de Guarulhos) que fecham a clínica.
 

@@ -8,11 +8,10 @@ Ctrl+C ou "sair" encerra.
 import argparse
 import logging
 import sys
-from datetime import datetime
 
 from patas.agente.llm import cliente_do_ambiente
 from patas.agente.loop import Agente
-from patas.config import caminho_banco, carregar_ambiente
+from patas.config import agora_local, caminho_banco, carregar_ambiente
 from patas.dominio.agenda import ServicoAgenda
 from patas.dominio.conversa import ServicoConversa
 from patas.repositorio.sqlite import AgendaSQLite, AtendimentoSQLite, conectar
@@ -47,7 +46,7 @@ def main() -> int:
             break
         if not texto:
             continue
-        agora = datetime.now().replace(second=0, microsecond=0)  # o banco guarda em minutos
+        agora = agora_local()
         conversa = conversas.receber(args.telefone, texto, agora)
         resposta = agente.responder(conversa.id, agora)
         print(f"\npatas> {resposta}\n")

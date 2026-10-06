@@ -18,6 +18,12 @@ TERCA_22H = datetime(2026, 10, 6, 22, 0)  # fechada, como a C3 (21h47)
     "ela ta com SANGUE no xixi",
     "acho que ele engoliu uma meia",
     "tá com falta de ar",
+    "meu gato tá forçando pra fazer xixi e não sai nada",  # 7: obstrução urinária
+    "o dogue alemão tá com a barriga inchada e dura",  # 8: torção gástrica
+    "foi picado por escorpião no quintal",  # 9
+    "voltou do passeio muito ofegante, acho que foi insolação",  # 10
+    "a cachorra entrou em trabalho de parto faz uma hora e nada",  # 11
+    "brigou com outro cachorro e tá com o olho machucado",  # 6 e 12
 ])
 def test_sinais_de_alerta(texto):
     assert guardrails.detectar_alerta(texto)
@@ -28,6 +34,8 @@ def test_sinais_de_alerta(texto):
     "você quer consulta para o Bob que está mancando da pata de trás",  # C7
     "Quanto custa castração de gata?",  # C4
     "quanto ta o banho",  # C15
+    "ele tá com muita queda de pelo",  # queixa comum, não é "queda de altura"
+    "tem picada de pulga na barriga dela",  # pulga não é peçonhento
 ])
 def test_queixa_comum_e_pergunta_nao_sao_alerta(texto):
     assert not guardrails.detectar_alerta(texto)

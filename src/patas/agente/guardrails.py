@@ -10,21 +10,38 @@ o que é alerta é a Beatriz (pergunta P5 em docs/regras-de-negocio.md).
 import re
 import unicodedata
 
-# Sinais de alerta (RN19, RN20). Casam com o texto sem acento e em minúsculas.
+# Sinais de alerta (RN19, RN20), por categoria. Lista "validada pela Dra. Beatriz" em 2026-10-06:
+# validação de EXEMPLO (caso fictício), detalhada em docs/regras-de-negocio.md, seção Urgência.
+# Casam com o texto sem acento e em minúsculas.
 SINAIS_DE_ALERTA = [
-    r"vomit",  # vomitando, vômito
-    r"diarreia",
-    r"(nao|parou de) (quer )?(come|beb)",  # não come, não quer comer, parou de beber
-    r"sangu|sangra",  # sangue, sangrando, sangramento
-    r"convuls|desmai|inconscien",
-    r"falta de ar|nao consegue respirar|respirando (mal|com dificuldade)|engasg",
-    r"atropel|fratur",
-    r"envenen|veneno|raticida|chumbinho",
-    # Ingestão de algo tóxico, com até 40 caracteres entre o verbo e a coisa (C3: "comeu um pedaço grande de chocolate").
+    # 1. Ingestão tóxica, com até 40 caracteres entre o verbo e a coisa (C3: "comeu um pedaço grande de chocolate")
     r"\b(comeu|engoliu|ingeriu|lambeu|mastigou|bebeu)\b.{0,40}\b(chocolate|uvas?|passas?|cebola|alho|remedio|"
     r"comprimido|xilitol|chiclete|osso|pilha|produto de limpeza|agua sanitaria)",
-    r"engoliu",
-    r"nao (consegue )?(levanta|anda|mexe)",
+    r"envenen|veneno|raticida|chumbinho|engoliu",
+    # 2. Vômito ou diarreia, sem comer ou beber (C13)
+    r"vomit|diarreia",
+    r"(nao|parou de) (quer )?(come|beb)",
+    # 3. Sangramento
+    r"sangu|sangra",
+    # 4. Convulsão, desmaio, prostração
+    r"convuls|desmai|inconscien|nao (consegue )?(levanta|anda|mexe)",
+    # 5. Dificuldade para respirar, engasgo, gengiva roxa ou branca
+    r"falta de ar|nao consegue respirar|respirando (mal|com dificuldade)|engasg|gengiva (roxa|branca|palida)",
+    # 6. Trauma: atropelamento, queda de altura, briga, fratura
+    r"atropel|fratur|caiu d[aoe] (janela|sacada|varanda|escada|telhado|predio|laje)",
+    r"(brigou|mordid[oa]|atacad[oa]) .{0,20}(cachorro|cao|gato)",
+    # 7. Gato (sobretudo macho) fazendo força e sem sair xixi: obstrução urinária
+    r"(nao|sem) (consegue )?(fazer )?(xixi|urinar)|nao sai (o |nada de )?xixi|forca(ndo)? (pra|para) (fazer )?xixi",
+    # 8. Barriga inchada ou dura, ânsia sem vomitar (torção gástrica em cão grande)
+    r"barriga (inchada|estufada|dura)|ansia sem vomitar",
+    # 9. Picada de animal peçonhento
+    r"(picad[oa]|mordid[oa]) (de|por) (cobra|escorpiao|abelhas?|vespa|aranha)|\bcobra\b|escorpiao",
+    # 10. Insolação ou calor excessivo
+    r"insolac|hipertermi|muito ofegante",
+    # 11. Parto difícil
+    r"\bparto\b|nao (consegue )?(parir|nascer)",
+    # 12. Olho machucado ou saltado
+    r"olho (machucado|saltado|pra fora|sangrando|furado)",
 ]
 _ALERTA = re.compile("|".join(f"(?:{p})" for p in SINAIS_DE_ALERTA))
 
@@ -47,18 +64,22 @@ _FERRAMENTA = re.compile(
 
 LIMITE_RESPOSTA = 1500  # WhatsApp aceita mais, mas recepção não manda textão
 
-HOSPITAL_24H = "Hospital Veterinário Vida Animal, que funciona 24h"  # endereço e telefone: pergunta P6
+# P6, dados de EXEMPLO (caso fictício): trocar pelos reais antes de qualquer uso com cliente.
+HOSPITAL_24H = (
+    "Hospital Veterinário Vida Animal (24h): Rua das Acácias, 250, Jardim Exemplo, Guarulhos, "
+    "telefone (11) 90000-2424"
+)
 
 RESPOSTA_URGENCIA_FECHADO = (
     "Pelo que você contou, ele precisa ser visto por um veterinário agora. A Patas & Cia está fechada "
-    f"neste momento e não atende emergência fora do horário: procure já o {HOSPITAL_24H}. "
+    f"neste momento e não atende emergência fora do horário. Procure já o {HOSPITAL_24H}. "
     "Avisei a nossa equipe, e a Joyce fala com você assim que a clínica abrir."
 )
 
 RESPOSTA_SAUDE = (
     "Sobre a saúde do seu pet, quem pode orientar é a veterinária, então não consigo indicar nada por aqui. "
-    "Já passei para a Joyce te ajudar a marcar uma avaliação. Se for urgente, traga o animal à clínica ou, "
-    f"fora do horário, procure o {HOSPITAL_24H}."
+    "Já passei para a Joyce te ajudar a marcar uma avaliação. Se for urgente, traga o animal à clínica. "
+    f"Fora do horário, procure o {HOSPITAL_24H}."
 )
 
 
