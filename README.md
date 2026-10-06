@@ -125,8 +125,8 @@ docs/            regras de negócio, contratos das ferramentas, segurança, depl
 
 ## Roadmap
 
-- Adaptador do WhatsApp oficial (API da Meta): webhook com assinatura validada e espera para juntar mensagens em rajada
-- Rodada completa da avaliação (30 casos × 3 repetições) e meta de **90% dos agendamentos simples sem a recepção**
+- **Canal WhatsApp (em aberto, fora do escopo deste MVP):** a arquitetura já isola o canal; a integração seria pela API oficial da Meta (WhatsApp Business Platform), com webhook de assinatura validada e espera para juntar mensagens em rajada. Hoje o canal é o simulador web
+- Rodada completa da avaliação (30 casos × 3 repetições, ≈ US$ 2,70), opcional: o piloto já validou o corretor e achou 2 bugs. Meta proposta: **90% dos agendamentos simples sem a recepção**
 - Tutor simulado por LLM na avaliação, no lugar das falas fixas
 - Login por pessoa no painel; backup automático; migrações de schema; retenção de 90 dias (LGPD)
 - Integração com o sistema da clínica (VetFácil) e com o Google Agenda: muda só o adaptador de repositório
