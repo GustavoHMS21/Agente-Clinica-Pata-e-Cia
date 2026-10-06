@@ -2,7 +2,7 @@ from datetime import datetime, time
 
 from patas.dominio.modelos import Agendamento, Porte, StatusAgendamento
 from patas.dominio.telefone import normalizar_telefone
-from patas.repositorio.sqlite import novo_id
+from patas.dominio.ids import novo_id
 
 QUARTA_10H = datetime(2026, 10, 7, 10, 0)
 QUARTA_10H30 = datetime(2026, 10, 7, 10, 30)

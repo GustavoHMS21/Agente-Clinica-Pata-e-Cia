@@ -69,3 +69,11 @@ Decidir se um caso é grave já é julgamento clínico, e o agente não pode faz
 - **P4.** Pedido de cancelamento com menos de 2h: o que acontece? Conta como falta?
 - **P5.** A Beatriz valida a lista de sinais de alerta da seção Urgência.
 - **P6.** Endereço e telefone do Hospital Vida Animal para a resposta fixa.
+- **P7.** Durações não informadas na tabela. Assumimos: banho de gato 60 min, corte de unha 15 min, primeira vacina (consulta + vacina) 30 min.
+- **P8.** Lista de feriados (nacionais e de Guarulhos) que fecham a clínica.
+
+## Decisões do MVP (sem regra da cliente, revisar com a Beatriz)
+
+- Não oferece horário que começa em menos de 30 minutos.
+- Horários numa grade de 15 minutos (:00, :15, :30, :45).
+- Vacinas exigidas para banho: cão V10 e antirrábica; gato V5 e antirrábica (P3). A validade é checada na data do banho, não na de hoje.

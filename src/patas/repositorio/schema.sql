@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS agendamento (
     preco_centavos  INTEGER NOT NULL,
     criado_em       TEXT NOT NULL,
     proposta_id     TEXT UNIQUE,                        -- idempotência da confirmação (ADR 0002)
+    observacao      TEXT CHECK (observacao IS NULL OR length(observacao) <= 300),
     CHECK (fim > inicio)
 );
 -- Sobreposição (inicio < fim_novo AND fim > inicio_novo) é checada em transação no código:

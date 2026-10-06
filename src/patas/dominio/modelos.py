@@ -104,6 +104,16 @@ class Agendamento:
     preco_centavos: int
     criado_em: datetime
     proposta_id: str | None = None  # chave de idempotência da confirmação
+    observacao: str | None = None  # queixa anotada sem comentário, ou "consulta + vacina"
+
+
+@dataclass(frozen=True)
+class Opcao:
+    """Horário livre oferecido ao tutor."""
+
+    inicio: datetime
+    fim: datetime
+    profissional_id: str
 
 
 @dataclass(frozen=True)

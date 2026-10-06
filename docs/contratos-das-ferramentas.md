@@ -100,7 +100,7 @@ Horários livres que já respeitam todas as regras do serviço e do animal.
 | `periodo` | `manha` · `tarde` | Não | |
 | `profissional_id` | string | Não | Só para consultas |
 
-Saída: até 5 opções `{ inicio, rotulo, profissional, duracao_min }`. Se não houver nenhuma, `opcoes: []` e um `motivo` (ex.: "banho de gato só terça e quinta de manhã").
+Saída: até 5 opções `{ inicio, rotulo, profissional, duracao_min }`, no máximo uma por turno (manhã ou tarde) de cada dia, como a Joyce faz na C2 ("10h ou 14h30"). Não oferece horário que começa em menos de 30 minutos. Se não houver nenhuma, `opcoes: []` e um `motivo` (ex.: "banho de gato só terça e quinta de manhã").
 
 Aplica RN01 a RN04, RN06 a RN08 e RN26. A vacina é checada aqui, antes de oferecer horário, e não depois que o tutor já escolheu (o erro da C6).
 
@@ -112,6 +112,8 @@ Aplica RN01 a RN04, RN06 a RN08 e RN26. A vacina é checada aqui, antes de ofere
 | `animal_id` ou `animal_novo` | como acima; `animal_novo` ganha `nome` (até 40 caracteres) | Sim |
 | `inicio` | data e hora, vinda de `buscar_horarios` | Sim |
 | `profissional_id` | string | Só consultas |
+| `observacao` | texto até 300 caracteres | Não. A queixa do tutor, anotada sem comentário ("mancando da pata de trás") |
+| `nome_tutor` | texto até 40 caracteres | Só para número sem cadastro (pré-agendamento) |
 
 Saída:
 ```json
@@ -173,7 +175,7 @@ A urgência fora do horário não passa por aqui. Ela é resolvida antes do agen
 | `HORARIO_INDISPONIVEL` | Horário ocupado ou fora do funcionamento (RN01) | Oferecer as `alternativas` que vêm junto |
 | `VACINA_PENDENTE` | Banho com vacina vencida ou sem registro (RN08) | Oferecer a vacina antes |
 | `PRAZO_CURTO` | Menos de 2h para o horário (RN25) | `passar_para_joyce(motivo=prazo_curto)` |
-| `SEM_PERMISSAO` | Número não é do tutor dono do agendamento (RN23) | `passar_para_joyce(motivo=sem_permissao)` |
+| `SEM_PERMISSAO` | Número sem cadastro tentando remarcar ou cancelar (RN23). Agendamento de outro tutor cai em `NAO_ENCONTRADO`; o modelo nem chega a ver o id dele | `passar_para_joyce(motivo=sem_permissao)` |
 | `BLOQUEADO_POR_FALTAS` | Duas faltas sem aviso (RN26) | `passar_para_joyce(motivo=faltas)` |
 | `NAO_AGENDAVEL` | Serviço que o agente não marca (exame, cirurgia, retorno) | Informar e passar para a Joyce |
 | `PROPOSTA_INVALIDA` | Proposta expirada, de outra conversa ou já usada para outra coisa | Propor de novo |

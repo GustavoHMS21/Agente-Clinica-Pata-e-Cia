@@ -11,8 +11,8 @@ from contextlib import contextmanager
 from datetime import date, datetime, time
 from importlib import resources
 from pathlib import Path
-from uuid import uuid4
 
+from patas.dominio.ids import novo_id
 from patas.dominio.modelos import (
     Agendamento,
     Animal,
@@ -55,11 +55,6 @@ def transacao(conn: sqlite3.Connection) -> Iterator[None]:
     conn.execute("COMMIT")
 
 
-def novo_id(prefixo: str) -> str:
-    # Aleatório, não sequencial: id em sequência convida a testar o vizinho.
-    return f"{prefixo}_{uuid4().hex[:12]}"
-
-
 def _dt(valor: datetime) -> str:
     return valor.isoformat(timespec="minutes")
 
@@ -95,6 +90,7 @@ def _agendamento(r: sqlite3.Row) -> Agendamento:
         preco_centavos=r["preco_centavos"],
         criado_em=datetime.fromisoformat(r["criado_em"]),
         proposta_id=r["proposta_id"],
+        observacao=r["observacao"],
     )
 
 
@@ -239,10 +235,10 @@ class AgendaSQLite:
                 return None
             self._conn.execute(
                 "INSERT INTO agendamento (id, animal_id, servico_id, profissional_id, inicio, fim, status,"
-                " preco_centavos, criado_em, proposta_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " preco_centavos, criado_em, proposta_id, observacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     a.id, a.animal_id, a.servico_id, a.profissional_id, _dt(a.inicio), _dt(a.fim),
-                    a.status.value, a.preco_centavos, _dt(a.criado_em), a.proposta_id,
+                    a.status.value, a.preco_centavos, _dt(a.criado_em), a.proposta_id, a.observacao,
                 ),
             )
         return a

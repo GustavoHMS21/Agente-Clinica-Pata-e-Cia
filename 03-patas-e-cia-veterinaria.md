@@ -80,8 +80,9 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 ## Status
 - Bloco 2 concluído: regras em docs/regras-de-negocio.md (RN01 a RN29); decisão em docs/adr/0001-agente-unico-com-ferramentas.md
 - Bloco 3 concluído: docs/contratos-das-ferramentas.md e docs/adr/0002-escrita-em-duas-fases.md
-- Bloco atual: 4 (dados e agenda)
-  - 4a concluído: stack (ADR 0003), schema, interfaces de repositório, implementação SQLite, seed e testes
-  - 4b próximo: serviço de agenda com as regras RN01 a RN27 (horários livres, porte, vacina, antecedência, propostas)
-- Pendente com a Beatriz: perguntas P1 a P6, lista de feriados, duração do banho de gato e do corte de unha
+- Bloco 4 concluído
+  - 4a: stack (ADR 0003), schema, interfaces de repositório, implementação SQLite, seed
+  - 4b: regras puras (src/patas/dominio/regras.py) e serviço de agenda (src/patas/dominio/agenda.py), 31 testes
+- Bloco atual: 5 (estado da conversa)
+- Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2
