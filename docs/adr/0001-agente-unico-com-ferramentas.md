@@ -42,18 +42,16 @@ mensagem do canal
   -> [código] ação só acontece depois da confirmação do tutor (RN27)
 ```
 
-Ferramentas previstas (o bloco 3 detalha contratos e erros):
+Ferramentas (contratos completos em [contratos-das-ferramentas.md](../contratos-das-ferramentas.md)):
 
 | Ferramenta | Risco |
 | --- | --- |
-| `consultar_servicos` (preço, duração, regras) | Leitura |
-| `listar_agendamentos` do tutor identificado | Leitura |
+| `consultar_servicos` | Leitura |
+| `consultar_cadastro` (animais e agendamentos do tutor) | Leitura |
 | `buscar_horarios` | Leitura |
-| `propor_agendamento` | Leitura (só valida e monta o resumo) |
-| `confirmar_agendamento` | Escrita reversível |
-| `remarcar` | Escrita reversível |
-| `cancelar` | Escrita difícil de desfazer (o horário pode ser ocupado por outro) |
-| `passar_para_joyce` (motivo, urgência, resumo) | Escrita interna |
+| `propor_agendamento` · `propor_remarcacao` · `propor_cancelamento` | Proposta, não escreve |
+| `confirmar_proposta` | Escrita (única porta, ver [ADR 0002](0002-escrita-em-duas-fases.md)) |
+| `passar_para_joyce` | Escrita interna |
 
 ## Segurança já decidida aqui
 

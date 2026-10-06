@@ -78,8 +78,8 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 12. Case de portfólio
 
 ## Status
-- Bloco atual: 2 (precisa de agente?), proposta pronta para revisão
-- Regras classificadas em docs/regras-de-negocio.md (RN01 a RN29); decisão em docs/adr/0001-agente-unico-com-ferramentas.md
-- Tarefa do Gutto: revisar a classificação e o ADR; perguntas P1 a P6 para a Beatriz
-- Próximo: bloco 3 (ferramentas e contratos)
+- Bloco 2 concluído: regras em docs/regras-de-negocio.md (RN01 a RN29); decisão em docs/adr/0001-agente-unico-com-ferramentas.md
+- Bloco atual: 3 (ferramentas e contratos), proposta pronta para revisão: docs/contratos-das-ferramentas.md e docs/adr/0002-escrita-em-duas-fases.md
+- Pendente com a Beatriz: perguntas P1 a P6
+- Próximo: bloco 4 (dados e agenda), começa pela escolha da stack
 - Pendência paralela: números da avaliação no README do projeto 2
