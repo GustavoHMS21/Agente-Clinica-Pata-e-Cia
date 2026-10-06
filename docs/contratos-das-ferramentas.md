@@ -95,6 +95,7 @@ Horários livres que já respeitam todas as regras do serviço e do animal.
 | `servico_id` | enum dos serviços agendáveis | Sim | |
 | `animal_id` | string: id do cadastro ou `"novo"` | Sim | Precisa ser do tutor |
 | `especie_animal`, `peso_kg_animal` | `cao`·`gato`, número | Só com `animal_id="novo"` | Peso de 0,1 a 120 kg |
+| `porte_estimado` | `P`·`M`·`G`·`GG` | Só para banho sem peso conhecido (P2) | A proposta avisa que a tosadora confirma e o valor pode mudar |
 | `data_inicio` | data | Sim | Não pode ser passada nem passar de 60 dias |
 | `data_fim` | data | Não | Janela de até 14 dias |
 | `periodo` | `manha` · `tarde` | Não | |
@@ -174,7 +175,7 @@ A urgência fora do horário não passa por aqui. Ela é resolvida antes do agen
 | `REGRA_DO_SERVICO` | Dia, horário ou profissional que o serviço não permite (RN03, RN04, RN07) | Explicar a regra e buscar alternativa |
 | `HORARIO_INDISPONIVEL` | Horário ocupado ou fora do funcionamento (RN01) | Oferecer as `alternativas` que vêm junto |
 | `VACINA_PENDENTE` | Banho com vacina vencida ou sem registro (RN08) | Oferecer a vacina antes |
-| `PRAZO_CURTO` | Menos de 2h para o horário (RN25) | `passar_para_joyce(motivo=prazo_curto)` |
+| `PRAZO_CURTO` | O horário já começou ou passou. Com menos de 2h ainda pode (P4): a proposta avisa e a Joyce recebe `vaga_liberada` ao confirmar | `passar_para_joyce(motivo=prazo_curto)` |
 | `SEM_PERMISSAO` | Número sem cadastro tentando remarcar ou cancelar (RN23). Agendamento de outro tutor cai em `NAO_ENCONTRADO`; o modelo nem chega a ver o id dele | `passar_para_joyce(motivo=sem_permissao)` |
 | `BLOQUEADO_POR_FALTAS` | Duas faltas sem aviso (RN26) | `passar_para_joyce(motivo=faltas)` |
 | `NAO_AGENDAVEL` | Serviço que o agente não marca (exame, cirurgia, retorno) | Informar e passar para a Joyce |

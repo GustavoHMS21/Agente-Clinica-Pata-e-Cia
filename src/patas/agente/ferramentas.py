@@ -15,7 +15,8 @@ from typing import Any
 from patas.agente.formato import DIAS, reais, rotulo
 from patas.dominio.agenda import MOTIVOS_PASSAGEM, AnimalNovo, Contexto, ServicoAgenda
 from patas.dominio.erros import Codigo, ErroRegra
-from patas.dominio.modelos import Agendamento, Especie, Opcao, Proposta, Servico, StatusAgendamento
+from patas.dominio.modelos import Agendamento, Especie, Opcao, Porte, Proposta, Servico, StatusAgendamento
+from patas.dominio.regras import vence_em
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ _ANIMAL = {
     "especie_animal": {"type": "string", "enum": ["cao", "gato"], "description": 'Só quando animal_id = "novo".'},
     "peso_kg_animal": {"type": "number",
                        "description": 'Só quando animal_id = "novo". Peso dito pelo tutor; obrigatório para banho e tosa.'},
+    "porte_estimado": {"type": "string", "enum": ["P", "M", "G", "GG"],
+                       "description": "Só para banho e tosa de animal sem peso conhecido, quando o tutor não sabe o "
+                                      "peso: porte estimado pela raça. A tosadora confirma na chegada."},
 }
 _PROFISSIONAL_ID = {
     "type": "string",
@@ -194,7 +198,9 @@ class Executor:
                     "peso_kg": f.animal.peso_kg,
                     "porte": f.porte.value if f.porte else None,
                     "ja_passou_em_consulta_aqui": f.animal.tem_historico,
-                    "vacinas": [{"nome": v.nome, "valida_ate": f"{v.valida_ate:%d/%m/%Y}"} for v in f.vacinas],
+                    # P3: vale 1 ano a partir da aplicação; V8 conta como V10 e V4 como V5.
+                    "vacinas": [{"nome": v.nome, "aplicada_em": f"{v.aplicada_em:%d/%m/%Y}",
+                                 "vale_ate": f"{vence_em(v.aplicada_em):%d/%m/%Y}"} for v in f.vacinas],
                 }
                 for f in cadastro.animais
             ],
@@ -373,12 +379,13 @@ def _animal(e: dict) -> dict:
     if animal_id is None:
         raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, "Faltou o animal_id.",
                         'Chamar consultar_cadastro e usar o animal_id; para animal sem cadastro, animal_id="novo".')
+    porte = Porte(e["porte_estimado"]) if e.get("porte_estimado") else None
     if animal_id.strip().lower() != "novo":
-        return {"animal_id": animal_id, "animal_novo": None}
+        return {"animal_id": animal_id, "animal_novo": None, "porte_estimado": porte}
     if "especie_animal" not in e:
         raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, 'animal_id="novo" precisa de especie_animal (cao ou gato).',
                         "Perguntar ao tutor se é cão ou gato, e o peso, e chamar de novo.")
-    return {"animal_id": None, "animal_novo": AnimalNovo(
+    return {"animal_id": None, "porte_estimado": porte, "animal_novo": AnimalNovo(
         Especie(e["especie_animal"]), e.get("peso_kg_animal"), (e.get("nome_animal") or "").strip()
     )}
 

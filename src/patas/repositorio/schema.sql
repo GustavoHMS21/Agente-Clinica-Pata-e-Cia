@@ -49,9 +49,13 @@ CREATE TABLE IF NOT EXISTS expediente (
     PRIMARY KEY (profissional_id, dia_semana, inicio)
 );
 
+-- Dias especiais (P8). abre e fecha vazios: fechado o dia todo. Preenchidos: horário reduzido
+-- (quarta de Cinzas abre 12:00; 24 e 31/12 fecham 12:00), sempre dentro do horário normal.
 CREATE TABLE IF NOT EXISTS feriado (
-    data TEXT PRIMARY KEY,
-    nome TEXT NOT NULL
+    data  TEXT PRIMARY KEY,
+    nome  TEXT NOT NULL,
+    abre  TEXT,
+    fecha TEXT
 );
 
 CREATE TABLE IF NOT EXISTS servico (

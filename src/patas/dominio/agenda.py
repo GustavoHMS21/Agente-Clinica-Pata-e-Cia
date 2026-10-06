@@ -37,11 +37,16 @@ PESO_MIN, PESO_MAX = 0.1, 120.0
 LIMITE_NOME = 40
 LIMITE_OBSERVACAO = 300
 LIMITE_RESUMO = 500
-CONSULTA_DA_PRIMEIRA_VACINA = "consulta_clinica"  # RN09
+# RN09 (P1, P7): primeira vacina = consulta + vacina no mesmo horário, 45 min. Gato vai na consulta de felinos.
+CONSULTA_DA_PRIMEIRA_VACINA = {Especie.CAO: "consulta_clinica", Especie.GATO: "consulta_felinos"}
+DURACAO_PRIMEIRA_VACINA = timedelta(minutes=45)
+VETERINARIA_DE_GATOS = "vet_camila"  # P1: gato é sempre com a Dra. Camila (consultório preparado para gato)
+AVISO_PORTE_ESTIMADO = "Porte estimado pela raça: a tosadora confirma quando ele chegar, e o valor pode mudar."
 CATEGORIAS = frozenset({"consulta", "vacina", "exame", "banho_tosa", "outros"})
 MOTIVOS_PASSAGEM = frozenset({
     "urgencia", "saude", "resultado_exame", "exame_ou_cirurgia", "retorno", "taxi_dog", "sem_permissao",
     "prazo_curto", "faltas", "cadastro_novo", "fora_do_escopo", "pedido_do_tutor", "erro",
+    "carteirinha", "vaga_liberada",
 })
 
 
@@ -113,7 +118,10 @@ class ServicoAgenda:
         return self._agenda.nome_profissional(profissional_id) or profissional_id
 
     def clinica_aberta(self, agora: datetime) -> bool:
-        return regras.dentro_do_funcionamento(agora) and not self._agenda.listar_feriados(agora.date(), agora.date())
+        especiais = self._agenda.listar_dias_especiais(agora.date(), agora.date())
+        if agora.date() in especiais and especiais[agora.date()] is None:
+            return False  # feriado: fechado o dia todo
+        return regras.dentro_do_funcionamento(agora, especiais.get(agora.date()))
 
     def cadastro(self, ctx: Contexto) -> Cadastro | None:
         tutor = self._tutor(ctx)
@@ -140,6 +148,7 @@ class ServicoAgenda:
         animal_novo: AnimalNovo | None = None,
         periodo: str | None = None,
         profissional_id: str | None = None,
+        porte_estimado: Porte | None = None,
     ) -> list[Opcao]:
         if periodo not in (None, "manha", "tarde"):
             raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, "periodo deve ser manha ou tarde.")
@@ -147,7 +156,7 @@ class ServicoAgenda:
         limite = min(data_inicio + timedelta(days=JANELA_BUSCA_DIAS - 1), self._horizonte(ctx))
         data_fim = min(data_fim or limite, limite)
 
-        pedido = self._resolver(ctx, servico_id, animal_id, animal_novo)
+        pedido = self._resolver(ctx, servico_id, animal_id, animal_novo, porte_estimado)
         self._checar_vacinas(pedido, data_inicio)
         profissionais = self._filtrar_profissionais(pedido, profissional_id)
         opcoes = self._opcoes(pedido.servico, profissionais, pedido.duracao, data_inicio, data_fim, ctx.agora)
@@ -167,6 +176,7 @@ class ServicoAgenda:
         profissional_id: str | None = None,
         observacao: str | None = None,
         nome_tutor: str | None = None,
+        porte_estimado: Porte | None = None,
     ) -> Proposta:
         observacao = self._texto_opcional(observacao, LIMITE_OBSERVACAO, "observacao")
         nome_tutor = self._texto_opcional(nome_tutor, LIMITE_NOME, "nome_tutor")
@@ -178,7 +188,7 @@ class ServicoAgenda:
             )
         self._checar_data(ctx, inicio.date())
 
-        pedido = self._resolver(ctx, servico_id, animal_id, animal_novo)
+        pedido = self._resolver(ctx, servico_id, animal_id, animal_novo, porte_estimado)
         self._checar_vacinas(pedido, inicio.date())
         candidatos = self._filtrar_profissionais(pedido, profissional_id)
         escolhido = self._primeiro_livre(pedido.servico, candidatos, inicio, pedido.duracao, ctx.agora)
@@ -198,6 +208,7 @@ class ServicoAgenda:
                 if pedido.animal_novo else None
             ),
             "nome_tutor": nome_tutor,
+            "porte_estimado": porte_estimado.value if porte_estimado else None,
             "profissional_id": escolhido,
             "profissional_nome": self._agenda.nome_profissional(escolhido),
             "inicio": inicio.isoformat(timespec="minutes"),
@@ -215,15 +226,16 @@ class ServicoAgenda:
         agendamento = self._agendamento_alteravel(ctx, agendamento_id)
         self._checar_data(ctx, novo_inicio.date())
         servico = self._agenda.obter_servico(agendamento.servico_id)
-        if profissional_id is not None and profissional_id not in servico.profissionais:
-            raise self._erro_profissional(servico)
+        animal = self._agenda.obter_animal(agendamento.animal_id)
+        permitidos = self._profissionais_para(servico, animal.especie, servico.profissionais)
+        if profissional_id is not None and profissional_id not in permitidos:
+            raise self._erro_profissional(servico, permitidos)
         # Prefere quem já atendia; senão, qualquer um que faça o serviço.
         candidatos = [profissional_id] if profissional_id else [
-            agendamento.profissional_id,
-            *(p for p in servico.profissionais if p != agendamento.profissional_id),
+            *(p for p in permitidos if p == agendamento.profissional_id),
+            *(p for p in permitidos if p != agendamento.profissional_id),
         ]
         duracao = agendamento.fim - agendamento.inicio
-        animal = self._agenda.obter_animal(agendamento.animal_id)
         if servico.categoria == "banho_tosa":
             self._checar_vacinas_animal(animal, novo_inicio.date())
         escolhido = self._primeiro_livre(servico, candidatos, novo_inicio, duracao, ctx.agora, agendamento.id)
@@ -240,6 +252,7 @@ class ServicoAgenda:
             "inicio": novo_inicio.isoformat(timespec="minutes"),
             "fim": (novo_inicio + duracao).isoformat(timespec="minutes"),
             "preco_centavos": agendamento.preco_centavos,
+            "avisos": self._avisos_em_cima_da_hora(agendamento, ctx),
         }
         return self._nova_proposta(ctx, TipoProposta.REMARCACAO, dados)
 
@@ -252,8 +265,16 @@ class ServicoAgenda:
             "profissional_nome": self._agenda.nome_profissional(agendamento.profissional_id),
             "inicio": agendamento.inicio.isoformat(timespec="minutes"),
             "preco_centavos": agendamento.preco_centavos,
+            "avisos": self._avisos_em_cima_da_hora(agendamento, ctx),
         }
         return self._nova_proposta(ctx, TipoProposta.CANCELAMENTO, dados)
+
+    @staticmethod
+    def _avisos_em_cima_da_hora(agendamento: Agendamento, ctx: Contexto) -> list[str]:
+        if regras.em_cima_da_hora(agendamento.inicio, ctx.agora):
+            return ["Está em cima da hora, mas pode sim (não conta como falta). Vou avisar a Joyce para "
+                    "tentar encaixar outra pessoa no horário."]
+        return []
 
     # Confirmação: a única escrita na agenda ----------------------------------
 
@@ -303,9 +324,10 @@ class ServicoAgenda:
         inicio, fim = datetime.fromisoformat(d["inicio"]), datetime.fromisoformat(d["fim"])
         novo = AnimalNovo(Especie(d["animal_novo"]["especie"]), d["animal_novo"]["peso_kg"], d["animal_novo"]["nome"]) \
             if d["animal_novo"] else None
+        porte_estimado = Porte(d["porte_estimado"]) if d.get("porte_estimado") else None
 
         # Revalida tudo: entre a proposta e a confirmação, a agenda e o cadastro podem ter mudado.
-        pedido = self._resolver(ctx, d["servico_id"], d["animal_id"], novo)
+        pedido = self._resolver(ctx, d["servico_id"], d["animal_id"], novo, porte_estimado)
         self._checar_vacinas(pedido, inicio.date())
         if self._primeiro_livre(pedido.servico, [d["profissional_id"]], inicio, fim - inicio, ctx.agora) is None:
             self._sem_horario(pedido.servico, pedido.profissionais, fim - inicio, inicio.date(), ctx)
@@ -350,12 +372,24 @@ class ServicoAgenda:
         livre = self._primeiro_livre(servico, [d["profissional_id"]], inicio, fim - inicio, ctx.agora, agendamento.id)
         if livre is None or not self._agenda.mover_agendamento_se_livre(agendamento.id, livre, inicio, fim):
             self._sem_horario(servico, servico.profissionais, fim - inicio, inicio.date(), ctx, agendamento.id)
+        self._avisar_vaga_liberada(ctx, agendamento, d)
         return self._agenda.obter_agendamento(agendamento.id)
 
     def _executar_cancelamento(self, ctx: Contexto, proposta: Proposta) -> Agendamento:
         agendamento = self._agendamento_alteravel(ctx, proposta.dados["agendamento_id"])
         self._agenda.cancelar_agendamento(agendamento.id)
+        self._avisar_vaga_liberada(ctx, agendamento, proposta.dados)
         return self._agenda.obter_agendamento(agendamento.id)
+
+    def _avisar_vaga_liberada(self, ctx: Contexto, agendamento: Agendamento, dados: dict) -> None:
+        """P4: desmarcar em cima da hora pode; a Joyce só precisa saber para colocar outro no lugar."""
+        if regras.em_cima_da_hora(agendamento.inicio, ctx.agora):
+            self.passar_para_joyce(
+                ctx, "vaga_liberada", False,
+                f"Horário liberado em cima da hora: {dados['servico_nome']} de {dados['animal_nome']} em "
+                f"{agendamento.inicio:%d/%m às %H:%M} com {self.nome_profissional(agendamento.profissional_id)}. "
+                "Tentar encaixar alguém.",
+            )
 
     # Validações --------------------------------------------------------------
 
@@ -363,7 +397,8 @@ class ServicoAgenda:
         return self._agenda.obter_tutor(ctx.tutor_id) if ctx.tutor_id else None
 
     def _resolver(
-        self, ctx: Contexto, servico_id: str, animal_id: str | None, animal_novo: AnimalNovo | None
+        self, ctx: Contexto, servico_id: str, animal_id: str | None, animal_novo: AnimalNovo | None,
+        porte_estimado: Porte | None = None,
     ) -> _Pedido:
         tutor = self._tutor(ctx)
         if tutor and regras.bloqueado_por_faltas(tutor):
@@ -390,25 +425,32 @@ class ServicoAgenda:
             especie, peso, tem_historico, pre = animal_novo.especie, animal_novo.peso_kg, False, True
 
         if servico.especie is not None and servico.especie != especie:
-            raise ErroRegra(Codigo.REGRA_DO_SERVICO, f"{servico.nome} é só para {servico.especie.value}.")
+            dica = " Gato é sempre na consulta de felinos, com a Dra. Camila." if especie == Especie.GATO else ""
+            raise ErroRegra(Codigo.REGRA_DO_SERVICO, f"{servico.nome} é só para {servico.especie.value}.{dica}")
 
+        avisos: list[str] = []
         if servico.precos_por_porte:
-            if peso is None:
+            if peso is not None:
+                porte = regras.porte_pelo_peso(peso)
+            elif porte_estimado is not None:  # P2: sem pesagem, a Joyce vai pela raça; a tosadora confirma
+                porte = porte_estimado
+                avisos.append(AVISO_PORTE_ESTIMADO)
+            else:
                 raise ErroRegra(Codigo.PRECISA_PESO, "O preço e a duração do banho dependem do porte.")
-            porte = regras.porte_pelo_peso(peso)
             faixa = next(p for p in servico.precos_por_porte if p.porte == porte)
-            preco, duracao = faixa.preco_centavos, faixa.duracao_min
+            preco, duracao = faixa.preco_centavos, timedelta(minutes=faixa.duracao_min)
         else:
-            preco, duracao = servico.preco_centavos, servico.duracao_min
+            preco, duracao = servico.preco_centavos, timedelta(minutes=servico.duracao_min)
 
-        profissionais, avisos, observacao = servico.profissionais, [], None
+        profissionais = self._profissionais_para(servico, especie, servico.profissionais)
+        observacao = None
         if servico.categoria == "vacina":
             avisos.append("Trazer a carteirinha de vacinação.")
             if not tem_historico:  # RN09: primeira vez aqui, consulta + vacina no mesmo horário
-                consulta = self._agenda.obter_servico(CONSULTA_DA_PRIMEIRA_VACINA)
+                consulta = self._agenda.obter_servico(CONSULTA_DA_PRIMEIRA_VACINA[especie])
                 preco += consulta.preco_centavos
-                duracao = consulta.duracao_min
-                profissionais = tuple(p for p in servico.profissionais if p in consulta.profissionais)
+                duracao = DURACAO_PRIMEIRA_VACINA
+                profissionais = tuple(p for p in profissionais if p in consulta.profissionais)
                 observacao = "Primeira vez na clínica: consulta + vacina"
                 avisos.append("Como é a primeira vacina aqui, a veterinária avalia antes e aplica no mesmo horário.")
         if servico.categoria == "banho_tosa":
@@ -416,8 +458,15 @@ class ServicoAgenda:
             if pre:
                 avisos.append("Trazer a carteirinha: sem vacinas em dia o banho não é feito.")
 
-        return _Pedido(servico, animal, animal_novo, especie, preco, timedelta(minutes=duracao),
+        return _Pedido(servico, animal, animal_novo, especie, preco, duracao,
                        profissionais, pre or tutor is None, avisos, observacao)
+
+    @staticmethod
+    def _profissionais_para(servico: Servico, especie: Especie, profissionais: tuple[str, ...]) -> tuple[str, ...]:
+        """P1: consulta e vacina de gato são sempre com a Dra. Camila. Encaixe de urgência é decisão da Joyce."""
+        if especie == Especie.GATO and servico.categoria in ("consulta", "vacina"):
+            return tuple(p for p in profissionais if p == VETERINARIA_DE_GATOS)
+        return tuple(profissionais)
 
     def _animal_do_tutor(self, ctx: Contexto, animal_id: str) -> Animal:
         animal = self._agenda.obter_animal(animal_id)
@@ -435,7 +484,7 @@ class ServicoAgenda:
                 or animal is None or animal.tutor_id != ctx.tutor_id):
             raise ErroRegra(Codigo.NAO_ENCONTRADO, "Agendamento não encontrado no cadastro deste tutor.")
         if not regras.pode_alterar(agendamento.inicio, ctx.agora):
-            raise ErroRegra(Codigo.PRAZO_CURTO, "Faltam menos de 2 horas para o horário.")
+            raise ErroRegra(Codigo.PRAZO_CURTO, "Esse horário já começou ou já passou.")
         return agendamento
 
     def _checar_vacinas(self, pedido: _Pedido, na_data: date) -> None:
@@ -453,11 +502,11 @@ class ServicoAgenda:
         if profissional_id is None:
             return list(pedido.profissionais)
         if profissional_id not in pedido.profissionais:
-            raise self._erro_profissional(pedido.servico)
+            raise self._erro_profissional(pedido.servico, pedido.profissionais)
         return [profissional_id]
 
-    def _erro_profissional(self, servico: Servico) -> ErroRegra:
-        nomes = ", ".join(self._agenda.nome_profissional(p) for p in servico.profissionais)
+    def _erro_profissional(self, servico: Servico, permitidos: tuple[str, ...]) -> ErroRegra:
+        nomes = ", ".join(self._agenda.nome_profissional(p) for p in permitidos)
         return ErroRegra(Codigo.REGRA_DO_SERVICO, f"{servico.nome} é feito por: {nomes}.")
 
     def _checar_data(self, ctx: Contexto, dia: date) -> None:
@@ -486,7 +535,7 @@ class ServicoAgenda:
         agora: datetime,
         ignorar_id: str | None = None,
     ) -> list[Opcao]:
-        feriados = self._agenda.listar_feriados(de, ate)
+        especiais = self._agenda.listar_dias_especiais(de, ate)
         ocupacoes = self._agenda.listar_ocupacoes(
             profissionais, datetime.combine(de, time.min), datetime.combine(ate + timedelta(days=1), time.min)
         )
@@ -499,9 +548,9 @@ class ServicoAgenda:
         opcoes: dict[datetime, Opcao] = {}
         dia = de
         while dia <= ate:
-            if dia not in feriados:
+            if not (dia in especiais and especiais[dia] is None):  # feriado: fechado o dia todo
                 for p in profissionais:  # em ordem: o primeiro profissional livre fica com o horário
-                    faixas = regras.faixas_do_dia(dia, expedientes[p], servico.janelas)
+                    faixas = regras.faixas_do_dia(dia, expedientes[p], servico.janelas, especiais.get(dia))
                     for inicio in regras.inicios_livres(faixas, duracao, por_profissional[p],
                                                         agora + regras.ANTECEDENCIA_MARCAR):
                         opcoes.setdefault(inicio, Opcao(inicio, inicio + duracao, p))
@@ -518,10 +567,12 @@ class ServicoAgenda:
         ignorar_id: str | None = None,
     ) -> str | None:
         fim = inicio + duracao
-        if inicio < agora + regras.ANTECEDENCIA_MARCAR or self._agenda.listar_feriados(inicio.date(), inicio.date()):
+        especiais = self._agenda.listar_dias_especiais(inicio.date(), inicio.date())
+        if inicio < agora + regras.ANTECEDENCIA_MARCAR or (inicio.date() in especiais and especiais[inicio.date()] is None):
             return None
         for p in profissionais:
-            faixas = regras.faixas_do_dia(inicio.date(), self._agenda.listar_expediente(p), servico.janelas)
+            faixas = regras.faixas_do_dia(inicio.date(), self._agenda.listar_expediente(p), servico.janelas,
+                                          especiais.get(inicio.date()))
             ocupacoes = [(o.inicio, o.fim) for o in self._agenda.listar_ocupacoes([p], inicio, fim) if o.id != ignorar_id]
             if regras.cabe(inicio, fim, faixas, ocupacoes):
                 return p

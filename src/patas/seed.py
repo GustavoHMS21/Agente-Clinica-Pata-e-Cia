@@ -29,21 +29,56 @@ PROFISSIONAIS = [
 VETERINARIAS = ["vet_beatriz", "vet_camila", "vet_paula"]
 TOSADORAS = ["tosa_a", "tosa_b"]
 
-# Feriados nacionais e de Guarulhos. Confirmar a lista com a Beatriz.
-FERIADOS = [
-    ("2026-10-12", "Nossa Senhora Aparecida"),
-    ("2026-11-02", "Finados"),
-    ("2026-11-15", "Proclamação da República"),
-    ("2026-11-20", "Consciência Negra"),
-    ("2026-12-08", "Aniversário de Guarulhos"),
-    ("2026-12-25", "Natal"),
-    ("2027-01-01", "Confraternização Universal"),
+# (data, nome, abre, fecha): dias fechados ou de horário reduzido, definidos pela Beatriz (P8).
+FERIADOS_FIXOS = [
+    ("01-01", "Confraternização Universal"),
+    ("04-21", "Tiradentes"),
+    ("05-01", "Dia do Trabalho"),
+    ("07-09", "Revolução Constitucionalista (feriado estadual de SP)"),
+    ("09-07", "Independência"),
+    ("10-12", "Nossa Senhora Aparecida"),
+    ("11-02", "Finados"),
+    ("11-15", "Proclamação da República"),
+    ("11-20", "Consciência Negra"),
+    ("12-08", "Aniversário de Guarulhos"),
+    ("12-25", "Natal"),
 ]
 
+
+def pascoa(ano: int) -> date:
+    """Domingo de Páscoa (algoritmo de Meeus/Jones/Butcher). Carnaval, Sexta-feira Santa e Corpus Christi dependem dela."""
+    a, b, c = ano % 19, ano // 100, ano % 100
+    d, e = b // 4, b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = c // 4, c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    mes, dia = divmod(h + l - 7 * m + 114, 31)
+    return date(ano, mes, dia + 1)
+
+
+def feriados_do_ano(ano: int) -> list[tuple[str, str, str | None, str | None]]:
+    p = pascoa(ano)
+    dias = [(f"{ano}-{md}", nome, None, None) for md, nome in FERIADOS_FIXOS]
+    dias += [
+        ((p - timedelta(days=48)).isoformat(), "Carnaval (segunda)", None, None),
+        ((p - timedelta(days=47)).isoformat(), "Carnaval (terça)", None, None),
+        ((p - timedelta(days=46)).isoformat(), "Quarta-feira de Cinzas (abre às 12h)", "12:00", None),
+        ((p - timedelta(days=2)).isoformat(), "Sexta-feira Santa", None, None),
+        ((p + timedelta(days=60)).isoformat(), "Corpus Christi", None, None),
+        (f"{ano}-12-24", "Véspera de Natal (até 12h)", None, "12:00"),
+        (f"{ano}-12-31", "Véspera de Ano-Novo (até 12h)", None, "12:00"),
+    ]
+    return sorted(dias)
+
+
 # (id, nome, categoria, especie, agendavel, preco_centavos, duracao_min)
+# P1: gato é sempre com a Dra. Camila, na consulta de felinos (R$ 170). As outras consultas são só para cão.
 SERVICOS = [
-    ("consulta_clinica", "Consulta clínica geral", "consulta", None, 1, 16000, 30),
-    ("consulta_dermato", "Consulta com dermatologista", "consulta", None, 1, 23000, 30),
+    ("consulta_clinica", "Consulta clínica geral", "consulta", "cao", 1, 16000, 30),
+    ("consulta_dermato", "Consulta com dermatologista", "consulta", "cao", 1, 23000, 30),
     ("consulta_felinos", "Consulta de felinos", "consulta", "gato", 1, 17000, 30),
     ("retorno", "Retorno em até 15 dias", "consulta", None, 0, 0, 30),
     ("vacina_v10", "Vacina V10", "vacina", "cao", 1, 9500, 15),
@@ -58,8 +93,8 @@ SERVICOS = [
     ("banho", "Banho", "banho_tosa", "cao", 1, None, None),
     ("banho_tosa_higienica", "Banho + tosa higiênica", "banho_tosa", "cao", 1, None, None),
     ("banho_tosa_completa", "Banho + tosa completa", "banho_tosa", "cao", 1, None, None),
-    ("banho_gato", "Banho de gato", "banho_tosa", "gato", 1, 11000, 60),  # duração não informada: 60 min
-    ("corte_unha", "Corte de unha avulso", "banho_tosa", None, 1, 3000, 15),  # duração não informada: 15 min
+    ("banho_gato", "Banho de gato", "banho_tosa", "gato", 1, 11000, 90),  # P7: 1h30
+    ("corte_unha", "Corte de unha avulso", "banho_tosa", None, 1, 3000, 15),  # P7: 15 min, na agenda do banho
     ("hidratacao", "Hidratação (adicional)", "banho_tosa", "cao", 0, 3500, None),
     ("taxi_dog", "Táxi dog (cada trecho, até 5 km)", "outros", None, 0, 2000, None),
     ("taxa_pulga", "Taxa de pulga ou carrapato", "outros", None, 0, 4000, None),
@@ -109,7 +144,8 @@ def proximo_dia_util(base: date, n: int, feriados: set[date]) -> date:
 
 
 def popular(conn: sqlite3.Connection, hoje: date) -> None:
-    feriados = {date.fromisoformat(d) for d, _ in FERIADOS}
+    calendario = feriados_do_ano(hoje.year) + feriados_do_ano(hoje.year + 1)
+    feriados = {date.fromisoformat(d) for d, _, abre, fecha in calendario if abre is None and fecha is None}
     d1 = proximo_dia_util(hoje, 1, feriados)
     d2 = proximo_dia_util(hoje, 2, feriados)
 
@@ -129,7 +165,7 @@ def popular(conn: sqlite3.Connection, hoje: date) -> None:
             "INSERT INTO expediente VALUES (?, ?, ?, ?)",
             [(pid, d, "08:00", "19:00") for d in SEG_A_SEX] + [(pid, SABADO, "08:00", "13:00")],
         )
-    conn.executemany("INSERT INTO feriado VALUES (?, ?)", FERIADOS)
+    conn.executemany("INSERT INTO feriado (data, nome, abre, fecha) VALUES (?, ?, ?, ?)", calendario)
 
     conn.executemany("INSERT INTO servico VALUES (?, ?, ?, ?, ?, ?, ?)", SERVICOS)
     for servico_id, precos in PRECOS_PORTE.items():

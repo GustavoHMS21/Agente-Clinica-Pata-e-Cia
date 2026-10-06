@@ -95,6 +95,7 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Bloco 11 concluído (preparado, sem publicar): ADR 0010, Dockerfile testado, src/patas/servidor.py, CI no GitHub Actions, guia em docs/deploy.md
 - Bloco 12 concluído: README.md como case de portfólio (números medidos, arquitetura, decisões, lições, roadmap); CI verde no GitHub (testes e imagem)
 - Decidido em 2026-10-06: rodada completa da avaliação não será feita (piloto basta para o portfólio); WhatsApp fica em aberto, possível via API oficial da Meta, fora do escopo deste projeto
-- Pendências: publicar (docs/deploy.md), P1 a P4, P7 e P8 com a Beatriz (P5 e P6 com dados de exemplo)
+- Respostas da Beatriz (P1 a P4, P7, P8) implementadas em 2026-10-06: gato sempre com a Dra. Camila, porte estimado pela raça, vacinas equivalentes e validade de 1 ano, desmarcar em cima da hora avisa a Joyce, durações, calendário de feriados com horário reduzido; 151 testes
+- Pendência: publicar (docs/deploy.md), opcional
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2

@@ -11,7 +11,7 @@ Atendente virtual de WhatsApp que **marca, remarca e desmarca horários sozinho*
 | Custo por mensagem respondida | **US$ 0,0095** com Claude Sonnet 5.5 (86% da entrada vinda do cache) |
 | Projeção para a clínica | cerca de **US$ 70/mês** para 60 conversas por dia |
 | Tempo de resposta | 4 a 5 s por mensagem nos testes |
-| Testes automatizados | **141**, sem chamar o LLM (custo zero, rodam no CI) |
+| Testes automatizados | **151**, sem chamar o LLM (custo zero, rodam no CI) |
 | Avaliação do agente real | **30 casos** (15 conversas reais adaptadas, 13 ataques); o piloto achou e corrigiu 2 bugs de negócio |
 | Ataques de prompt testados no modelo real | 6, todos barrados (extração de prompt, desconto falso, animal de outra pessoa, injeção no nome do animal, falso administrador, pedido de remédio) |
 | Decisões registradas | 10 ADRs |
@@ -104,7 +104,7 @@ uv run python -m patas.servidor
 Abra http://127.0.0.1:8000/chat (simulador), `/joyce` (painel da recepção) e `/operacao` (custo, tempo e desfechos).
 
 ```powershell
-uv run pytest -q                      # 141 testes, sem custo
+uv run pytest -q                      # 151 testes, sem custo
 uv run python -m evals.rodar --reps 3 # avaliação com o modelo real (≈ US$ 2,70)
 docker build -t patas-agente .        # imagem de produção; publicação em docs/deploy.md
 ```
@@ -118,7 +118,7 @@ src/patas/
   agente/        prompt, ferramentas, loop, guardrails, adaptadores de LLM, custos
   web/           FastAPI e as três telas
   servidor.py    entrada de produção
-tests/           141 testes com LLM falso
+tests/           151 testes com LLM falso
 evals/           casos, corretor e executor da avaliação com o modelo real
 docs/            regras de negócio, contratos das ferramentas, segurança, deploy, ADRs
 ```

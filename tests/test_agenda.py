@@ -6,7 +6,7 @@ import pytest
 
 from patas.dominio.agenda import AnimalNovo, Contexto
 from patas.dominio.erros import Codigo, ErroRegra
-from patas.dominio.modelos import Especie, StatusAgendamento, TipoProposta
+from patas.dominio.modelos import Especie, Porte, StatusAgendamento, TipoProposta
 
 AGORA = datetime(2026, 10, 6, 9, 0)
 QUARTA, QUINTA, SEXTA = date(2026, 10, 7), date(2026, 10, 8), date(2026, 10, 9)
@@ -76,7 +76,7 @@ def test_primeira_vacina_vira_consulta_mais_vacina(servico):
     proposta = servico.propor_agendamento(ctx("t_vanessa"), "vacina_v10", datetime(2026, 10, 7, 11), animal_id="a_bolt")
     assert proposta.tipo == TipoProposta.AGENDAMENTO
     assert proposta.dados["preco_centavos"] == 16000 + 9500
-    assert proposta.dados["fim"] == "2026-10-07T11:30"
+    assert proposta.dados["fim"] == "2026-10-07T11:45"  # P7: consulta + vacina leva 45 min
     assert "consulta + vacina" in proposta.dados["observacao"]
 
 
@@ -102,9 +102,80 @@ def test_numero_sem_cadastro_nao_remarca_nem_cancela(servico):
         servico.propor_cancelamento(ctx(None), "ag_luna")
 
 
-def test_menos_de_2h_antes_nao_cancela(servico):
+def test_menos_de_2h_pode_desmarcar_e_a_joyce_fica_sabendo(servico, conn):
+    # P4: não é falta; as 2h são só para a Joyce conseguir colocar outro no lugar.
+    em_cima = datetime(2026, 10, 7, 7, 30)  # banho da Luna às 9h
+    proposta = servico.propor_cancelamento(ctx("t_patricia", agora=em_cima), "ag_luna")
+    assert any("em cima da hora" in a for a in proposta.dados["avisos"])
+    cancelado = servico.confirmar(ctx("t_patricia", turno=2, agora=em_cima), proposta.id)
+    assert cancelado.status == StatusAgendamento.CANCELADO
+    assert conn.execute("SELECT motivo FROM passagem").fetchone()["motivo"] == "vaga_liberada"
+    assert conn.execute("SELECT faltas_sem_aviso FROM tutor WHERE id = 't_patricia'").fetchone()[0] == 0
+
+
+def test_com_folga_desmarca_sem_incomodar_a_joyce(servico, conn):
+    proposta = servico.propor_cancelamento(ctx("t_patricia"), "ag_luna")  # terça 9h, banho quarta 9h
+    servico.confirmar(ctx("t_patricia", turno=2), proposta.id)
+    assert conn.execute("SELECT COUNT(*) FROM passagem").fetchone()[0] == 0
+
+
+def test_horario_que_ja_comecou_nao_se_desmarca_por_aqui(servico):
     with erro(Codigo.PRAZO_CURTO):
-        servico.propor_cancelamento(ctx("t_patricia", agora=datetime(2026, 10, 7, 7, 30)), "ag_luna")
+        servico.propor_cancelamento(ctx("t_patricia", agora=datetime(2026, 10, 7, 9, 10)), "ag_luna")
+
+
+# Respostas da Beatriz (P1, P2, P8) ------------------------------------------------
+
+
+def test_gato_e_sempre_com_a_dra_camila(servico, agenda):
+    # P1: consulta de gato é a de felinos (R$ 170), e vacina de gato também é com a Camila.
+    with pytest.raises(ErroRegra) as e:
+        servico.buscar_horarios(ctx("t_ana"), "consulta_clinica", QUINTA, animal_id="a_frajola")
+    assert "consulta de felinos" in e.value.mensagem
+    agenda.cancelar_agendamento("ag_luna")  # irrelevante: só para garantir agenda livre não interfere
+    opcoes = servico.buscar_horarios(ctx("t_ana"), "vacina_antirrabica", QUINTA, animal_id="a_frajola")
+    assert opcoes and {o.profissional_id for o in opcoes} == {"vet_camila"}
+
+
+def test_primeira_vacina_de_gato_e_consulta_de_felinos(servico):
+    gato = AnimalNovo(Especie.GATO, 4.0, "Mingau")
+    proposta = servico.propor_agendamento(ctx(None), "vacina_v5", datetime(2026, 10, 8, 10), animal_novo=gato,
+                                          nome_tutor="Tutor Novo")
+    assert proposta.dados["preco_centavos"] == 17000 + 12000
+    assert proposta.dados["fim"] == "2026-10-08T10:45"
+    assert proposta.dados["profissional_id"] == "vet_camila"
+
+
+def test_sem_peso_o_porte_vem_da_raca_com_aviso(servico):
+    # P2: animal que nunca foi pesado aqui; a tosadora confirma o porte na chegada, e o valor pode mudar.
+    sem_peso = AnimalNovo(Especie.CAO, None, "Pipoca")
+    with erro(Codigo.PRECISA_PESO):
+        servico.propor_agendamento(ctx(None), "banho", datetime(2026, 10, 8, 8), animal_novo=sem_peso,
+                                   nome_tutor="Tutor Novo")
+    proposta = servico.propor_agendamento(ctx(None), "banho", datetime(2026, 10, 8, 8), animal_novo=sem_peso,
+                                          nome_tutor="Tutor Novo", porte_estimado=Porte.M)
+    assert proposta.dados["preco_centavos"] == 8000
+    assert any("tosadora confirma" in a for a in proposta.dados["avisos"])
+
+
+def test_vespera_de_natal_so_ate_meio_dia(servico):
+    # P8: em 24/12 a clínica funciona só até as 12h.
+    perto_do_natal = datetime(2026, 12, 21, 9, 0)
+    natal = date(2026, 12, 24)
+    opcoes = servico.buscar_horarios(ctx("t_mariana", agora=perto_do_natal), "consulta_clinica", natal, natal,
+                                     animal_id="a_thor")
+    assert opcoes and all(o.fim.hour < 12 or (o.fim.hour, o.fim.minute) == (12, 0) for o in opcoes)
+    assert servico.clinica_aberta(datetime(2026, 12, 24, 10, 0))
+    assert not servico.clinica_aberta(datetime(2026, 12, 24, 13, 0))
+
+
+def test_carnaval_fecha_e_quarta_de_cinzas_abre_ao_meio_dia(servico):
+    # P8: Carnaval 2027 é 8 e 9 de fevereiro; quarta de Cinzas (10/02) abre às 12h.
+    janeiro = datetime(2027, 1, 20, 9, 0)
+    opcoes = servico.buscar_horarios(ctx("t_mariana", agora=janeiro), "consulta_clinica", date(2027, 2, 8),
+                                     date(2027, 2, 10), animal_id="a_thor")
+    assert {o.inicio.date() for o in opcoes} == {date(2027, 2, 10)}
+    assert min(o.inicio for o in opcoes).hour == 12
 
 
 # Confirmação (ADR 0002) --------------------------------------------------------

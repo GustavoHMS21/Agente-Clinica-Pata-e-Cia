@@ -84,19 +84,25 @@ O que a Beatriz tirou da lista: queda de pelo, coceira, espirro leve, tártaro, 
 
 Revisão: a cada 6 meses ou quando a Joyce relatar um caso urgente que o agente não pegou.
 
-## Perguntas abertas para a Beatriz
+## Respostas da Beatriz (2026-10-06)
 
-- **P1.** Consulta de gato é só com a Dra. Camila, ou qualquer veterinária atende gato pelo preço de clínica geral?
-- **P2.** Animal com 10 kg ou 20 kg exatos fica em qual porte?
-- **P3.** Quais vacinas são exigidas para banho (V10 e antirrábica? V5 para gato?) e qual a validade de cada uma?
-- **P4.** Pedido de cancelamento com menos de 2h: o que acontece? Conta como falta?
+| # | Pergunta | Resposta | No código |
+| --- | --- | --- | --- |
+| P1 | Consulta de gato é só com a Dra. Camila? | Sim, sempre, consulta de felinos a R$ 170 (consultório preparado para gato). Encaixe de urgência no dia é a Joyce que decide | Consulta clínica e dermatologia só para cão (seed); consulta e vacina de gato só com a Camila; primeira vacina de gato = consulta de felinos + vacina (`agenda.py`) |
+| P2 | 10 kg e 20 kg exatos? | "Até" inclui o número: 10 kg é P; 10,1 a 20 é M; 20,1 a 35 é G; acima de 35, GG. Vale a última pesagem. Sem pesagem e sem o tutor saber, vai pela raça e a tosadora confirma na chegada (o valor pode mudar) | `porte_pelo_peso` (já estava certo); novo `porte_estimado` com aviso |
+| P3 | Vacinas para banho e validade? | Cão: V10 (aceita V8) e antirrábica. Gato: V5 (aceita V4) e antirrábica. Todas valem 1 ano da aplicação. Gripe e giárdia recomendadas, não obrigatórias. Filhote só depois das doses iniciais. Vacina de outra clínica: foto da carteirinha e a Joyce confere | Grupos de equivalência e `vence_em` em `regras.py`; prompt e passagem `carteirinha` |
+| P4 | Cancelar com menos de 2h? | Pode, não é falta (falta é não vir e não avisar). As 2h são para a Joyce encaixar outro; ela só precisa saber | Sem bloqueio; aviso na proposta e passagem `vaga_liberada` ao confirmar. Só não se altera horário que já começou |
+| P7 | Durações não informadas? | Banho de gato 1h30; corte de unha 15 min (agenda do banho); primeira vacina 45 min; vacina avulsa de paciente 15 min | Seed e `DURACAO_PRIMEIRA_VACINA` |
+| P8 | Feriados? | Todos os nacionais (com 20/11), 9/7 (SP), 8/12 (Guarulhos), Corpus Christi; Carnaval seg e ter fechado, quarta abre às 12h; 24 e 31/12 só até as 12h | Calendário gerado por ano com a Páscoa calculada (`seed.py`); tabela `feriado` com horário reduzido |
+
+Interpretação nossa, a confirmar: "gato é sempre com a Dra. Camila" vale também para vacina de gato, não só consulta. Sexta-feira Santa foi incluída entre os feriados nacionais.
+
+## Perguntas resolvidas antes
 - ~~**P5.** A Beatriz valida a lista de sinais de alerta.~~ Resolvida (exemplo): lista na seção Urgência.
 - ~~**P6.** Endereço e telefone do Hospital Vida Animal.~~ Resolvida com dados de exemplo: Rua das Acácias, 250, Jardim Exemplo, Guarulhos, (11) 90000-2424. Trocar pelos reais antes de uso com cliente.
-- **P7.** Durações não informadas na tabela. Assumimos: banho de gato 60 min, corte de unha 15 min, primeira vacina (consulta + vacina) 30 min.
-- **P8.** Lista de feriados (nacionais e de Guarulhos) que fecham a clínica.
 
 ## Decisões do MVP (sem regra da cliente, revisar com a Beatriz)
 
 - Não oferece horário que começa em menos de 30 minutos.
 - Horários numa grade de 15 minutos (:00, :15, :30, :45).
-- Vacinas exigidas para banho: cão V10 e antirrábica; gato V5 e antirrábica (P3). A validade é checada na data do banho, não na de hoje.
+- A validade da vacina é checada na data do banho, não na de hoje.

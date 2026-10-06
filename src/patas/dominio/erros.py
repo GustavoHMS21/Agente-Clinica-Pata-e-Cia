@@ -26,11 +26,13 @@ class Codigo(StrEnum):
 PROXIMO_PASSO = {
     Codigo.ARGUMENTO_INVALIDO: "Corrigir os argumentos e chamar de novo, ou perguntar ao tutor o que falta.",
     Codigo.NAO_ENCONTRADO: "Chamar consultar_cadastro para ver os animais e agendamentos deste tutor.",
-    Codigo.PRECISA_PESO: "Perguntar o peso do animal em kg.",
+    Codigo.PRECISA_PESO: "Perguntar o peso do animal em kg. Se o tutor não souber, estimar o porte pela raça e "
+                         "chamar de novo com porte_estimado (a tosadora confirma na chegada).",
     Codigo.REGRA_DO_SERVICO: "Explicar a regra ao tutor e buscar uma alternativa.",
     Codigo.HORARIO_INDISPONIVEL: "Oferecer as alternativas que vieram junto.",
-    Codigo.VACINA_PENDENTE: "Oferecer agendar a vacina antes do banho.",
-    Codigo.PRAZO_CURTO: "Chamar passar_para_joyce com motivo prazo_curto.",
+    Codigo.VACINA_PENDENTE: "Oferecer agendar a vacina antes do banho. Se o tutor disser que vacinou em outra "
+                            "clínica, pedir a foto da carteirinha e chamar passar_para_joyce com motivo carteirinha.",
+    Codigo.PRAZO_CURTO: "O horário já começou ou passou: chamar passar_para_joyce com motivo prazo_curto.",
     Codigo.SEM_PERMISSAO: "Chamar passar_para_joyce com motivo sem_permissao.",
     Codigo.BLOQUEADO_POR_FALTAS: "Chamar passar_para_joyce com motivo faltas.",
     Codigo.NAO_AGENDAVEL: "Informar o preço e chamar passar_para_joyce.",

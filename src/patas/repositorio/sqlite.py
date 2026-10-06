@@ -194,11 +194,19 @@ class AgendaSQLite:
         r = self._conn.execute("SELECT nome FROM profissional WHERE id = ?", (profissional_id,)).fetchone()
         return r["nome"] if r else None
 
-    def listar_feriados(self, de: date, ate: date) -> set[date]:
+    def listar_dias_especiais(self, de: date, ate: date) -> dict[date, Janela | None]:
         rows = self._conn.execute(
-            "SELECT data FROM feriado WHERE data BETWEEN ? AND ?", (de.isoformat(), ate.isoformat())
+            "SELECT data, abre, fecha FROM feriado WHERE data BETWEEN ? AND ?", (de.isoformat(), ate.isoformat())
         )
-        return {date.fromisoformat(r["data"]) for r in rows}
+        dias: dict[date, Janela | None] = {}
+        for r in rows:
+            dia = date.fromisoformat(r["data"])
+            if r["abre"] is None and r["fecha"] is None:
+                dias[dia] = None
+            else:
+                dias[dia] = Janela(dia.weekday(), time.fromisoformat(r["abre"] or "00:00"),
+                                   time.fromisoformat(r["fecha"] or "23:59"))
+        return dias
 
     # Agendamentos ------------------------------------------------------------
 
