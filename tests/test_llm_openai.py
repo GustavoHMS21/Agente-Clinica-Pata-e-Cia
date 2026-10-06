@@ -17,7 +17,7 @@ def test_ferramentas_viram_functions_sem_campos_que_nem_todo_provedor_aceita():
     assert len(convertidas) == 8 and all(f["type"] == "function" for f in convertidas)
     texto = json.dumps(convertidas)
     assert "additionalProperties" not in texto and "strict" not in texto
-    assert convertidas[2]["function"]["parameters"]["required"] == ["servico_id", "data_inicio"]
+    assert convertidas[2]["function"]["parameters"]["required"] == ["servico_id", "animal_id", "data_inicio"]
 
 
 def test_historico_vira_chat_completions_na_ordem_certa():

@@ -21,24 +21,21 @@ log = logging.getLogger(__name__)
 
 _DATA = {"type": "string", "description": "Data no formato AAAA-MM-DD."}
 _DATA_HORA = {"type": "string", "description": "Data e hora no horário de Guarulhos, formato AAAA-MM-DDTHH:MM, sem fuso."}
-_ANIMAL_ID = {
-    "type": "string",
-    "description": "O animal_id que veio de consultar_cadastro (ex.: a_thor). Obrigatório quando o animal está no cadastro.",
+# O animal é obrigatório e plano (sem objeto aninhado opcional): no teste real, campo de animal
+# opcional era omitido pelo modelo, que repetia a chamada até o limite de passos (ADR 0006).
+_ANIMAL = {
+    "animal_id": {
+        "type": "string",
+        "description": 'O animal_id que veio de consultar_cadastro (ex.: a_thor). Animal sem cadastro: "novo", '
+                       "com especie_animal e peso_kg_animal.",
+    },
+    "especie_animal": {"type": "string", "enum": ["cao", "gato"], "description": 'Só quando animal_id = "novo".'},
+    "peso_kg_animal": {"type": "number",
+                       "description": 'Só quando animal_id = "novo". Peso dito pelo tutor; obrigatório para banho e tosa.'},
 }
 _PROFISSIONAL_ID = {
     "type": "string",
     "description": "Id de profissional (ex.: vet_paula), nunca de animal. Omita se o tutor não pediu alguém específico.",
-}
-_ANIMAL_NOVO = {
-    "type": "object",
-    "description": "Animal que ainda não está no cadastro. Use só quando consultar_cadastro não trouxer o animal.",
-    "properties": {
-        "especie": {"type": "string", "enum": ["cao", "gato"]},
-        "peso_kg": {"type": "number", "description": "Peso informado pelo tutor. Obrigatório para banho e tosa."},
-        "nome": {"type": "string", "description": "Nome do animal, se o tutor disser."},
-    },
-    "required": ["especie"],
-    "additionalProperties": False,
 }
 
 
@@ -76,19 +73,16 @@ FERRAMENTAS = [
     _ferramenta(
         "buscar_horarios",
         "Horários livres que já respeitam todas as regras do serviço e do animal (funcionamento, feriados, "
-        "dias do serviço, porte, vacinas). Devolve até 5 opções, uma por turno de cada dia. "
-        "Informe animal_id (animal cadastrado) ou animal_novo, nunca os dois.",
-        # Ordem importa: com strict, o JSON segue a ordem do schema. Quem é o pedido vem primeiro.
+        "dias do serviço, porte, vacinas). Devolve até 5 opções, uma por turno de cada dia.",
         {
             "servico_id": {"type": "string", "description": "Id vindo de consultar_servicos."},
-            "animal_id": _ANIMAL_ID,
-            "animal_novo": _ANIMAL_NOVO,
+            **_ANIMAL,
             "data_inicio": _DATA,
             "data_fim": {**_DATA, "description": "Último dia da busca (AAAA-MM-DD). Até 14 dias depois do início."},
             "periodo": {"type": "string", "enum": ["manha", "tarde"]},
             "profissional_id": _PROFISSIONAL_ID,
         },
-        ["servico_id", "data_inicio"],
+        ["servico_id", "animal_id", "data_inicio"],
     ),
     _ferramenta(
         "propor_agendamento",
@@ -96,14 +90,14 @@ FERRAMENTAS = [
         "e os avisos devolvidos e espere ele responder. Número sem cadastro exige nome_tutor.",
         {
             "servico_id": {"type": "string"},
-            "animal_id": _ANIMAL_ID,
-            "animal_novo": _ANIMAL_NOVO,
+            **_ANIMAL,
+            "nome_animal": {"type": "string", "description": 'Só quando animal_id = "novo", se o tutor disser o nome.'},
             "inicio": _DATA_HORA,
             "observacao": {"type": "string", "description": "Queixa do tutor, anotada sem comentário (até 300 caracteres)."},
             "nome_tutor": {"type": "string", "description": "Nome do tutor, só para número sem cadastro."},
             "profissional_id": {**_PROFISSIONAL_ID, "description": "O profissional_id da opção escolhida em buscar_horarios."},
         },
-        ["servico_id", "inicio"],
+        ["servico_id", "animal_id", "inicio"],
     ),
     _ferramenta(
         "propor_remarcacao",
@@ -211,8 +205,7 @@ class Executor:
             servico_id,
             _data(e["data_inicio"], "data_inicio"),
             _data(e["data_fim"], "data_fim") if e.get("data_fim") else None,
-            animal_id=e.get("animal_id"),
-            animal_novo=_animal_novo(e.get("animal_novo")),
+            **_animal(e),
             periodo=e.get("periodo"),
             profissional_id=e.get("profissional_id"),
         )
@@ -230,8 +223,7 @@ class Executor:
             ctx,
             e["servico_id"],
             _data_hora(e["inicio"], "inicio"),
-            animal_id=e.get("animal_id"),
-            animal_novo=_animal_novo(e.get("animal_novo")),
+            **_animal(e),
             profissional_id=e.get("profissional_id"),
             observacao=e.get("observacao"),
             nome_tutor=e.get("nome_tutor"),
@@ -372,10 +364,20 @@ def _data_hora(texto: str, campo: str) -> datetime:
     return valor
 
 
-def _animal_novo(dados: dict | None) -> AnimalNovo | None:
-    if not dados:
-        return None
-    return AnimalNovo(Especie(dados["especie"]), dados.get("peso_kg"), (dados.get("nome") or "").strip())
+def _animal(e: dict) -> dict:
+    """animal_id do cadastro, ou "novo" + especie_animal/peso_kg_animal/nome_animal -> argumentos do domínio."""
+    animal_id = e.get("animal_id")
+    if animal_id is None:
+        raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, "Faltou o animal_id.",
+                        'Chamar consultar_cadastro e usar o animal_id; para animal sem cadastro, animal_id="novo".')
+    if animal_id.strip().lower() != "novo":
+        return {"animal_id": animal_id, "animal_novo": None}
+    if "especie_animal" not in e:
+        raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, 'animal_id="novo" precisa de especie_animal (cao ou gato).',
+                        "Perguntar ao tutor se é cão ou gato, e o peso, e chamar de novo.")
+    return {"animal_id": None, "animal_novo": AnimalNovo(
+        Especie(e["especie_animal"]), e.get("peso_kg_animal"), (e.get("nome_animal") or "").strip()
+    )}
 
 
 def _janelas(s: Servico) -> str:

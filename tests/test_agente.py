@@ -173,6 +173,29 @@ def test_chamada_que_falhou_nao_e_repetida(montar, conversas):
     assert "já falhou" in segunda["erro"]["mensagem"]
 
 
+def test_ferramenta_que_falha_com_argumentos_variados_e_bloqueada(montar, conversas):
+    # Visto no ataque 5: o modelo variava profissional_id e nunca mandava o animal.
+    llm, agente = montar([
+        pensa_e_chama("buscar_horarios", {"servico_id": "banho", "data_inicio": "2026-10-08", "profissional_id": p}, f"tu_{p}")
+        for p in ["vet_beatriz", "vet_camila", "vet_paula", "tosa_a"]
+    ] + [responde("Qual é o animal?")])
+    falar(conversas, agente, "Tem banho quinta?", T0)
+    assert "bloqueada" in resultado(llm.chamadas[4])["erro"]["mensagem"]
+
+
+def test_animal_novo_por_campos_planos(servico):
+    from patas.dominio.agenda import Contexto
+    ctx = Contexto("c1", "5511900001115", None, 1, T0)
+    gato = {"servico_id": "banho_gato", "animal_id": "novo", "especie_animal": "gato", "peso_kg_animal": 4,
+            "data_inicio": "2026-10-06"}
+    conteudo, erro = Executor(servico).executar("buscar_horarios", gato, ctx)
+    assert not erro and json.loads(conteudo)["dados"]["opcoes"]
+
+    sem_especie = {k: v for k, v in gato.items() if k != "especie_animal"}
+    conteudo, erro = Executor(servico).executar("buscar_horarios", sem_especie, ctx)
+    assert erro and "especie_animal" in json.loads(conteudo)["erro"]["mensagem"]
+
+
 def test_campo_opcional_vazio_e_ausencia(servico):
     from patas.dominio.agenda import Contexto
     ctx = Contexto("c1", "5511900001101", "t_mariana", 1, T0)

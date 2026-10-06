@@ -93,8 +93,8 @@ Horários livres que já respeitam todas as regras do serviço e do animal.
 | Entrada | Tipo | Obrigatório | Limite |
 | --- | --- | --- | --- |
 | `servico_id` | enum dos serviços agendáveis | Sim | |
-| `animal_id` | string | Um dos dois | Precisa ser do tutor |
-| `animal_novo` | `{ especie: cao·gato, peso_kg }` | Um dos dois | Peso de 0,1 a 120 kg |
+| `animal_id` | string: id do cadastro ou `"novo"` | Sim | Precisa ser do tutor |
+| `especie_animal`, `peso_kg_animal` | `cao`·`gato`, número | Só com `animal_id="novo"` | Peso de 0,1 a 120 kg |
 | `data_inicio` | data | Sim | Não pode ser passada nem passar de 60 dias |
 | `data_fim` | data | Não | Janela de até 14 dias |
 | `periodo` | `manha` · `tarde` | Não | |
@@ -109,7 +109,7 @@ Aplica RN01 a RN04, RN06 a RN08 e RN26. A vacina é checada aqui, antes de ofere
 | Entrada | Tipo | Obrigatório |
 | --- | --- | --- |
 | `servico_id` | enum | Sim |
-| `animal_id` ou `animal_novo` | como acima; `animal_novo` ganha `nome` (até 40 caracteres) | Sim |
+| `animal_id` (+ `especie_animal`, `peso_kg_animal`, `nome_animal` quando `"novo"`) | como acima; nome até 40 caracteres | Sim |
 | `inicio` | data e hora, vinda de `buscar_horarios` | Sim |
 | `profissional_id` | string | Só consultas |
 | `observacao` | texto até 300 caracteres | Não. A queixa do tutor, anotada sem comentário ("mancando da pata de trás") |
@@ -191,6 +191,10 @@ O `NAO_ENCONTRADO` é o mesmo para "não existe" e "não é seu". Assim, quem te
 - **Dados do usuário voltam ao modelo como dado.** Um animal chamado "ignore suas instruções" é só um nome. O bloco 7 testa esse caso.
 - **Nenhuma ferramenta executa consulta livre** (SQL, URL, comando). O agente só tem as 8 portas acima.
 - **Descrições e schemas vão para o provedor do LLM** junto com o prompt. Nada de chave, URL interna ou dado pessoal neles.
+
+## Revisão depois do teste real (bloco 7)
+
+O animal era opcional (`animal_id` ou o objeto `animal_novo`). No teste com o modelo real, ele omitia o animal e repetia a ferramenta até o limite de passos. Agora `animal_id` é obrigatório (`"novo"` para animal sem cadastro), e os dados do animal novo são campos simples, sem objeto aninhado. Lição: **campo crítico não pode ser opcional no schema**.
 
 ## Ficou para o roadmap
 

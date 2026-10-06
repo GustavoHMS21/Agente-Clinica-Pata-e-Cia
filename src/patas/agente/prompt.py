@@ -83,13 +83,21 @@ mensagem do tutor for só um áudio ou imagem que você não consegue ler, peça
 """
 
 
-def contexto_do_turno(agora: datetime, tutor_cadastrado: bool, clinica_aberta: bool, estado: Estado) -> str:
+def contexto_do_turno(
+    agora: datetime, tutor_cadastrado: bool, clinica_aberta: bool, estado: Estado, alerta: bool = False
+) -> str:
     linhas = [
         "<contexto_do_atendimento>",
         f"Agora: {rotulo_data(agora.date())}, {agora:%H:%M} (horário de Guarulhos).",
         f"Clínica aberta agora: {'sim' if clinica_aberta else 'não'}.",
         f"Telefone com cadastro: {'sim' if tutor_cadastrado else 'não (só pré-agendamento)'}.",
     ]
+    if alerta:
+        linhas.append(
+            "ALERTA: o sistema detectou um possível sinal de alerta de saúde nesta mensagem e já avisou a Joyce "
+            "como urgente. Não abra outra passagem. Não avalie nem oriente tratamento: diga que a equipe foi "
+            "avisada e oriente trazer o animal à clínica agora."
+        )
     proposta = estado.proposta_pendente
     if proposta:
         d = proposta.dados

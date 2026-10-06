@@ -87,6 +87,7 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Bloco 6 concluído: ADR 0005, src/patas/agente/ (prompt, ferramentas, llm, loop), chat de terminal
 - Provedor trocável (ADR 0006): Claude Sonnet 5.5 em uso; Gemini e Ollama (ollama/Modelfile) disponíveis pelo .env; 63 testes
 - Conversa real validada: preço, horário, proposta, confirmação no banco, recusa de promessa, urgência de saúde
-- Bloco atual: 7 (guardrails e segurança)
+- Bloco 7 concluído: src/patas/agente/guardrails.py, docs/seguranca.md, 6 ataques reais barrados, auditoria de segredos limpa, 82 testes
+- Bloco atual: 8 (interface)
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2

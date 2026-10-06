@@ -377,12 +377,7 @@ class ServicoAgenda:
             raise ErroRegra(Codigo.NAO_AGENDAVEL, f"{servico.nome} não é agendado pelo atendimento automático.")
 
         if (animal_id is None) == (animal_novo is None):
-            raise ErroRegra(
-                Codigo.ARGUMENTO_INVALIDO,
-                "Faltou dizer qual animal (ou vieram os dois campos). Animal do cadastro: animal_id, "
-                "que vem de consultar_cadastro. Animal sem cadastro: animal_novo.",
-                "Chamar de novo com animal_id (ou animal_novo). Se não souber o id, chamar consultar_cadastro antes.",
-            )
+            raise ErroRegra(Codigo.ARGUMENTO_INVALIDO, "Informe exatamente um animal: do cadastro ou novo.")
         if animal_id is not None:
             animal = self._animal_do_tutor(ctx, animal_id)
             especie, peso, tem_historico = animal.especie, animal.peso_kg, animal.tem_historico
