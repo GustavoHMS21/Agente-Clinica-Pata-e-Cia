@@ -13,6 +13,7 @@ from patas.dominio.modelos import (
     Animal,
     Conversa,
     Especie,
+    Execucao,
     Janela,
     Mensagem,
     Passagem,
@@ -103,3 +104,6 @@ class RepositorioAtendimento(Protocol):
     def listar_mensagens(self, conversa_id: str, a_partir_do_turno: int) -> list[Mensagem]:
         """Mensagens já processadas, em ordem de turno e de chegada."""
         ...
+
+    # Rastreio (bloco 9)
+    def registrar_execucao(self, execucao: Execucao) -> None: ...

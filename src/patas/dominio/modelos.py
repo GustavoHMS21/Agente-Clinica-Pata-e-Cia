@@ -133,6 +133,25 @@ class Papel(StrEnum):
     TUTOR = "tutor"
     AGENTE = "agente"
     FERRAMENTA = "ferramenta"
+    SISTEMA = "sistema"  # contexto do turno, gravado para o histórico ficar só-acréscimo (bloco 9)
+
+
+@dataclass(frozen=True)
+class Execucao:
+    """Um registro de rastreio: turno, chamada ao LLM ou ferramenta. Sem conteúdo de mensagem."""
+
+    conversa_id: str
+    turno: int
+    criada_em: datetime
+    tipo: str  # turno | llm | ferramenta
+    nome: str
+    resultado: str
+    duracao_ms: int
+    tokens_entrada: int = 0
+    tokens_saida: int = 0
+    tokens_cache_lidos: int = 0
+    tokens_cache_gravados: int = 0
+    custo_usd: float | None = None
 
 
 @dataclass(frozen=True)

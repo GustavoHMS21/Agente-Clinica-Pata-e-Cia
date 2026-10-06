@@ -83,7 +83,10 @@ def para_openai(system: list[dict], messages: list[dict]) -> list[dict]:
     saida = [{"role": "system", "content": "\n\n".join(b["text"] for b in system if b.get("type") == "text")}]
     for m in messages:
         blocos = m["content"] if isinstance(m["content"], list) else [{"type": "text", "text": m["content"]}]
-        if m["role"] == "user":
+        if m["role"] == "system":
+            # Contexto do turno no meio da conversa (ADR 0008).
+            saida.append({"role": "system", "content": "\n".join(b["text"] for b in blocos if b.get("type") == "text")})
+        elif m["role"] == "user":
             # Resultados de ferramenta primeiro: respondem à chamada anterior. O texto novo do tutor vem depois.
             for b in blocos:
                 if b.get("type") == "tool_result":

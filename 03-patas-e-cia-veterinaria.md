@@ -90,6 +90,7 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Bloco 7 concluído: src/patas/agente/guardrails.py, docs/seguranca.md, 6 ataques reais barrados, auditoria de segredos limpa, 82 testes
 - P5 e P6 resolvidas com dados de exemplo (lista de sinais de alerta em 12 categorias; Hospital Vida Animal fictício)
 - Bloco 8 concluído: ADR 0007, src/patas/web/ (simulador de WhatsApp e painel da Joyce), 97 testes
-- Bloco atual: 9 (observabilidade)
+- Bloco 9 concluído: ADR 0008, rastreio na tabela execucao, página /operacao, cache do histórico (custo medido: US$ 0,0095 por mensagem, 86% da entrada vindo do cache), 101 testes
+- Bloco atual: 10 (avaliação do agente)
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2

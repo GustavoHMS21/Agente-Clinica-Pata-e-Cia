@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS mensagem (
     id          INTEGER PRIMARY KEY,                    -- ordem de chegada dentro do turno
     conversa_id TEXT NOT NULL REFERENCES conversa(id),
     turno       INTEGER,                                -- NULL: do tutor, ainda não processada
-    papel       TEXT NOT NULL CHECK (papel IN ('tutor', 'agente', 'ferramenta')),
+    papel       TEXT NOT NULL CHECK (papel IN ('tutor', 'agente', 'ferramenta', 'sistema')),
     conteudo    TEXT NOT NULL,                          -- JSON: lista de blocos (text, tool_use, tool_result)
     criada_em   TEXT NOT NULL
 );
@@ -144,6 +144,26 @@ CREATE TABLE IF NOT EXISTS proposta (
     usada_em       TEXT,
     agendamento_id TEXT
 );
+
+-- Rastreio (bloco 9): uma linha por turno, por chamada ao LLM e por ferramenta.
+-- Só metadados (nomes, códigos, tokens, tempo, custo); o conteúdo já está em mensagem.
+CREATE TABLE IF NOT EXISTS execucao (
+    id            INTEGER PRIMARY KEY,
+    conversa_id   TEXT NOT NULL,
+    turno         INTEGER NOT NULL,
+    criada_em     TEXT NOT NULL,
+    tipo          TEXT NOT NULL CHECK (tipo IN ('turno', 'llm', 'ferramenta')),
+    nome          TEXT NOT NULL,                        -- modelo, ferramenta ou desfecho do turno
+    resultado     TEXT NOT NULL,                        -- stop_reason, ok ou código de erro
+    duracao_ms    INTEGER NOT NULL,
+    tokens_entrada      INTEGER NOT NULL DEFAULT 0,     -- sem cache
+    tokens_saida        INTEGER NOT NULL DEFAULT 0,
+    tokens_cache_lidos  INTEGER NOT NULL DEFAULT 0,
+    tokens_cache_gravados INTEGER NOT NULL DEFAULT 0,
+    custo_usd     REAL                                  -- NULL: modelo sem preço conhecido
+);
+CREATE INDEX IF NOT EXISTS idx_execucao_data ON execucao (criada_em);
+CREATE INDEX IF NOT EXISTS idx_execucao_conversa ON execucao (conversa_id, turno);
 
 CREATE TABLE IF NOT EXISTS passagem (
     protocolo   TEXT PRIMARY KEY,

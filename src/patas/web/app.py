@@ -11,7 +11,7 @@ import re
 import secrets
 import sqlite3
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, timedelta
 from importlib import resources
 from pathlib import Path
 
@@ -42,25 +42,30 @@ class MensagemEntrada(BaseModel):
     texto: str = Field(min_length=1, max_length=4000)
 
 
-def criar_app(
-    llm: ClienteLLM | None = None,
-    banco: Path | str | None = None,
-    usuario: str | None = None,
-    senha: str | None = None,
-) -> FastAPI:
+def criar_app() -> FastAPI:
+    """Raiz de composição: o único lugar que lê o ambiente e monta as peças reais (uvicorn --factory)."""
     carregar_ambiente()
-    usuario = usuario or os.environ.get("PAINEL_USUARIO", "").strip()
-    senha = senha or os.environ.get("PAINEL_SENHA", "").strip()
+    usuario = os.environ.get("PAINEL_USUARIO", "").strip()
+    senha = os.environ.get("PAINEL_SENHA", "").strip()
+    _validar_login(usuario, senha)  # antes de criar o cliente do LLM: falha rápida e sem custo
+    return montar_app(cliente_do_ambiente(), caminho_banco(), usuario, senha)
+
+
+def _validar_login(usuario: str, senha: str) -> None:
     # Falha fechada: sem login configurado, o servidor não sobe. O painel mostra dados de todos os
     # tutores e o simulador gasta crédito do LLM; nada disso pode ficar aberto por esquecimento.
     if not usuario or not senha:
         raise RuntimeError("Defina PAINEL_USUARIO e PAINEL_SENHA no .env: o servidor não sobe sem login.")
     if len(senha) < SENHA_MINIMA:
         raise RuntimeError(f"PAINEL_SENHA precisa de pelo menos {SENHA_MINIMA} caracteres.")
-    banco = Path(banco or caminho_banco())
+
+
+def montar_app(llm: ClienteLLM, banco: Path | str, usuario: str, senha: str) -> FastAPI:
+    """Monta o app com o que receber, sem ler ambiente: é o que os testes usam."""
+    _validar_login(usuario, senha)
+    banco = Path(banco)
     if not banco.exists():
         raise RuntimeError("Banco não encontrado. Rode antes: uv run python -m patas.seed")
-    llm = llm or cliente_do_ambiente()
 
     basic = HTTPBasic(realm="Patas & Cia")
 
@@ -135,6 +140,16 @@ def criar_app(
         if not re.fullmatch(r"PJ-[0-9A-F]{6}", protocolo) or not PainelSQLite(conn).resolver_passagem(protocolo):
             raise HTTPException(404, "Passagem não encontrada ou já resolvida.")
         return {"ok": True}
+
+    @app.get("/operacao", response_class=HTMLResponse, dependencies=login)
+    def pagina_operacao() -> str:
+        return _pagina("operacao.html")
+
+    @app.get("/api/operacao", dependencies=login)
+    def operacao(dias: int = 7, conn: sqlite3.Connection = Depends(conexao)) -> dict:
+        dias = max(1, min(dias, 90))
+        hoje = agora_local().date()
+        return PainelSQLite(conn).operacao(hoje - timedelta(days=dias - 1), hoje)
 
     @app.get("/api/agenda", dependencies=login)
     def agenda(dia: date | None = None, conn: sqlite3.Connection = Depends(conexao)) -> dict:

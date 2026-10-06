@@ -6,21 +6,24 @@ O agente não guarda nada entre execuções. A cada turno este serviço entrega:
 - o estado estruturado (proposta aguardando resposta, passagens abertas).
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from patas.dominio.agenda import Contexto
 from patas.dominio.ids import novo_id
-from patas.dominio.modelos import Conversa, Mensagem, Papel, Passagem, Proposta
+from patas.dominio.modelos import Conversa, Execucao, Mensagem, Papel, Passagem, Proposta
 from patas.dominio.telefone import normalizar_telefone
 from patas.repositorio.interface import RepositorioAgenda, RepositorioAtendimento
+
+log = logging.getLogger(__name__)
 
 INATIVIDADE_NOVA_CONVERSA = timedelta(hours=12)
 TURNOS_NO_HISTORICO = 10
 LIMITE_MENSAGEM = 2000
 AVISO_CORTE = " [mensagem cortada]"
 
-PAPEL_NA_API = {Papel.TUTOR: "user", Papel.FERRAMENTA: "user", Papel.AGENTE: "assistant"}
+PAPEL_NA_API = {Papel.TUTOR: "user", Papel.FERRAMENTA: "user", Papel.AGENTE: "assistant", Papel.SISTEMA: "system"}
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,10 @@ def para_api(mensagens: list[Mensagem]) -> list[dict]:
     historico: list[dict] = []
     for m in mensagens:
         role = PAPEL_NA_API[m.papel]
+        if role == "system":
+            # Mensagem de sistema no meio da conversa (contexto do turno): texto simples, nunca juntada.
+            historico.append({"role": "system", "content": "\n".join(b["text"] for b in m.conteudo)})
+            continue
         if historico and historico[-1]["role"] == role:
             historico[-1]["content"].extend(m.conteudo)
         else:
@@ -100,3 +107,10 @@ class ServicoConversa:
         self._atendimento.adicionar_mensagem(
             Mensagem(contexto.conversa_id, contexto.turno, papel, conteudo, contexto.agora)
         )
+
+    def rastrear(self, execucao: Execucao) -> None:
+        """Grava um registro de rastreio (bloco 9). Falha aqui nunca derruba o atendimento."""
+        try:
+            self._atendimento.registrar_execucao(execucao)
+        except Exception:
+            log.exception("Falha ao gravar o rastreio da conversa %s", execucao.conversa_id)

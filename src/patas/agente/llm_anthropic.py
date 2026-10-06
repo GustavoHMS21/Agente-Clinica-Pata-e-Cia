@@ -35,6 +35,9 @@ class ClienteClaude:
                 messages=messages,
                 thinking={"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "error"}},
                 output_config={"effort": EFFORT},
+                # Cache automático no fim das mensagens: o próximo passo do turno, e o próximo turno,
+                # reaproveitam o histórico já processado (ADR 0008). O prompt fixo tem marcação própria.
+                cache_control={"type": "ephemeral"},
                 fallbacks="default",
                 betas=BETAS,
             )
@@ -53,6 +56,7 @@ class ClienteClaude:
                 "input_tokens": uso.input_tokens,
                 "output_tokens": uso.output_tokens,
                 "cache_read_input_tokens": uso.cache_read_input_tokens or 0,
+                "cache_creation_input_tokens": uso.cache_creation_input_tokens or 0,
                 "modelo": resposta.model,
             },
         )

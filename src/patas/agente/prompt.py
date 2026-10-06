@@ -1,7 +1,8 @@
 """Prompt de sistema em duas partes.
 
 - PROMPT_FIXO: igual em toda requisição. Vai com cache_control, então custa pouco depois da primeira vez.
-- contexto_do_turno(): muda a cada turno. Só leva campos controlados pelo código (datas,
+- contexto_do_turno(): muda a cada turno e entra como mensagem de sistema logo depois da mensagem
+  do tutor, gravada no histórico (ADR 0008). Só leva campos controlados pelo código (datas,
   flags, ids, nomes de serviço da tabela). Nenhum texto livre do tutor ou nome digitado por
   ele entra aqui: isso fica nas mensagens user e nos resultados de ferramenta, como dado.
 """
@@ -117,9 +118,7 @@ def contexto_do_turno(
     return "\n".join(linhas)
 
 
-def system(contexto: str) -> list[dict]:
-    """Bloco fixo com cache primeiro, contexto do turno depois: o cache cobre ferramentas + parte fixa."""
-    return [
-        {"type": "text", "text": PROMPT_FIXO, "cache_control": {"type": "ephemeral"}},
-        {"type": "text", "text": contexto},
-    ]
+def system() -> list[dict]:
+    """Só a parte fixa, com cache. O contexto do turno vai como mensagem de sistema no meio da
+    conversa (ADR 0008): assim o prefixo nunca muda e o histórico também entra no cache."""
+    return [{"type": "text", "text": PROMPT_FIXO, "cache_control": {"type": "ephemeral"}}]

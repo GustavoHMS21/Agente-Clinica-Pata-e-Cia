@@ -35,7 +35,7 @@ def banco(tmp_path):
 @pytest.fixture
 def cliente(banco, monkeypatch):
     monkeypatch.setattr(web, "agora_local", lambda: datetime(2026, 10, 6, 9, 0))  # terça, aberta
-    return TestClient(web.criar_app(llm=LLMFixo(), banco=banco, usuario=USUARIO, senha=SENHA))
+    return TestClient(web.montar_app(LLMFixo(), banco, USUARIO, SENHA))
 
 
 def test_tudo_exige_login_menos_a_checagem_de_saude(cliente):
@@ -88,8 +88,17 @@ def test_agenda_do_dia(cliente):
     ]
 
 
+def test_operacao_resume_o_periodo(cliente):
+    corpo = {"telefone": "(11) 90000-1101", "texto": "Oi"}
+    cliente.post("/api/mensagens", json=corpo, auth=LOGIN, headers=DO_APP)
+    dados = cliente.get("/api/operacao?dias=1", auth=LOGIN).json()
+    assert (dados["conversas"], dados["mensagens"], dados["chamadas_llm"]) == (1, 1, 1)
+    assert dados["desfechos"] == {"resposta": 1}
+    assert cliente.get("/operacao", auth=LOGIN).status_code == 200
+
+
 def test_servidor_nao_sobe_sem_login_forte(banco):
     with pytest.raises(RuntimeError, match="PAINEL_USUARIO"):
-        web.criar_app(llm=LLMFixo(), banco=banco, usuario="", senha="")
+        web.montar_app(LLMFixo(), banco, "", "")
     with pytest.raises(RuntimeError, match="12 caracteres"):
-        web.criar_app(llm=LLMFixo(), banco=banco, usuario="joyce", senha="123")
+        web.montar_app(LLMFixo(), banco, "joyce", "123")

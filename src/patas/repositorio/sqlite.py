@@ -18,6 +18,7 @@ from patas.dominio.modelos import (
     Animal,
     Conversa,
     Especie,
+    Execucao,
     Janela,
     Mensagem,
     Papel,
@@ -382,6 +383,18 @@ class AtendimentoSQLite:
                      datetime.fromisoformat(r["criada_em"]))
             for r in rows
         ]
+
+
+    def registrar_execucao(self, execucao: Execucao) -> None:
+        e = execucao
+        self._conn.execute(
+            "INSERT INTO execucao (conversa_id, turno, criada_em, tipo, nome, resultado, duracao_ms, tokens_entrada,"
+            " tokens_saida, tokens_cache_lidos, tokens_cache_gravados, custo_usd)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (e.conversa_id, e.turno, e.criada_em.isoformat(timespec="seconds"), e.tipo, e.nome, e.resultado,
+             e.duracao_ms, e.tokens_entrada, e.tokens_saida, e.tokens_cache_lidos, e.tokens_cache_gravados,
+             e.custo_usd),
+        )
 
 
 def _proposta(r: sqlite3.Row) -> Proposta:

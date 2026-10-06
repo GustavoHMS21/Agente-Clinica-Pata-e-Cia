@@ -1,22 +1,27 @@
 """Loop do agente: um turno = chamar o modelo, executar ferramentas, repetir até a resposta final.
 
-Regras do loop (ADR 0005):
+Regras do loop (ADR 0005 e 0008):
 - Dentro do turno, o histórico só cresce (append-only), com os blocos de thinking intactos.
-- Entre turnos, o histórico vem do banco sem thinking: só texto, chamadas e resultados.
+- Entre turnos, o histórico vem do banco sem thinking: só texto, chamadas, resultados e o
+  contexto de cada turno (mensagem de sistema), para o prefixo nunca mudar e entrar no cache.
 - Limite de iterações; recusa, corte por tamanho e falha da API viram mensagem fixa + passagem para a Joyce.
+- Cada turno, chamada ao LLM e ferramenta vira um registro de rastreio (bloco 9).
 """
 
 import json
 import logging
+import time
 from collections import Counter
+from datetime import datetime
 
 from patas.agente import guardrails, prompt
+from patas.agente.custos import custo_usd
 from patas.agente.ferramentas import FERRAMENTAS, Executor
-from patas.agente.llm import ClienteLLM, FalhaLLM
+from patas.agente.llm import ClienteLLM, FalhaLLM, RespostaLLM
 from patas.dominio.agenda import Contexto, ServicoAgenda
 from patas.dominio.conversa import ServicoConversa
 from patas.dominio.erros import ErroRegra
-from patas.dominio.modelos import Papel
+from patas.dominio.modelos import Execucao, Papel
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +53,10 @@ def para_historico(blocos: list[dict]) -> list[dict]:
     return salvos
 
 
+def _ms(inicio: float) -> int:
+    return int((time.perf_counter() - inicio) * 1000)
+
+
 class Agente:
     def __init__(self, llm: ClienteLLM, agenda: ServicoAgenda, conversas: ServicoConversa) -> None:
         self._llm = llm
@@ -55,13 +64,22 @@ class Agente:
         self._conversas = conversas
         self._executor = Executor(agenda)
 
-    def responder(self, conversa_id: str, agora) -> str | None:
+    def responder(self, conversa_id: str, agora: datetime) -> str | None:
         """Processa as mensagens pendentes da conversa. None quando não havia nada novo."""
         turno = self._conversas.abrir_turno(conversa_id, agora)
         if turno is None:
             return None
         ctx = turno.contexto
-        aberta = self._agenda.clinica_aberta(agora)
+        inicio = time.perf_counter()
+        texto, desfecho = self._turno(turno)
+        # O registro do turno resume tudo: desfecho e tempo total que o tutor esperou.
+        self._conversas.rastrear(Execucao(ctx.conversa_id, ctx.turno, ctx.agora, "turno", desfecho, "ok",
+                                          _ms(inicio)))
+        return texto
+
+    def _turno(self, turno) -> tuple[str, str]:
+        ctx = turno.contexto
+        aberta = self._agenda.clinica_aberta(ctx.agora)
 
         # Guardrail de entrada: sinal de alerta de saúde é tratado pelo código, antes do modelo.
         alerta = guardrails.detectar_alerta(turno.texto_do_tutor)
@@ -72,26 +90,34 @@ class Agente:
                 self._passar(ctx, "urgencia", True, f"Alerta automático. Tutor escreveu: {turno.texto_do_tutor[:400]}")
             if not aberta:
                 # Fora do horário, nada de improviso sobre saúde: resposta fixa, sem chamar o modelo.
-                return self._responder_fixo(ctx, guardrails.RESPOSTA_URGENCIA_FECHADO)
+                return self._responder_fixo(ctx, guardrails.RESPOSTA_URGENCIA_FECHADO), "urgencia_fora_do_horario"
 
-        system = prompt.system(prompt.contexto_do_turno(agora, ctx.tutor_id is not None, aberta, turno.estado, alerta))
-        messages = list(turno.historico)
+        # Contexto do turno: mensagem de sistema logo depois do tutor, gravada no histórico (ADR 0008).
+        contexto = prompt.contexto_do_turno(ctx.agora, ctx.tutor_id is not None, aberta, turno.estado, alerta)
+        self._conversas.registrar(ctx, Papel.SISTEMA, [{"type": "text", "text": contexto}])
+        system = prompt.system()
+        messages = list(turno.historico) + [{"role": "system", "content": contexto}]
         falhas: set[str] = set()  # chamadas que já falharam neste turno: não repetimos (custo e loop)
         falhas_por_ferramenta: Counter[str] = Counter()  # mesma ferramenta errando com argumentos diferentes
 
         for _ in range(MAX_ITERACOES):
+            inicio = time.perf_counter()
             try:
                 resposta = self._llm.criar(system, FERRAMENTAS, messages)
             except FalhaLLM as e:
                 log.error("LLM indisponível na conversa %s: %s", ctx.conversa_id, e)
-                return self._encerrar_com_falha(ctx, "erro", "Falha ao chamar o modelo de linguagem.", RESPOSTA_FALHA)
+                self._rastrear_llm(ctx, None, "falha", _ms(inicio))
+                return self._encerrar_com_falha(ctx, "erro", "Falha ao chamar o modelo de linguagem.",
+                                                RESPOSTA_FALHA), "falha_llm"
+            self._rastrear_llm(ctx, resposta, resposta.stop_reason, _ms(inicio))
 
             if resposta.stop_reason == "refusal":
                 return self._encerrar_com_falha(ctx, "fora_do_escopo", "O modelo recusou responder a mensagem do tutor.",
-                                                RESPOSTA_RECUSA)
+                                                RESPOSTA_RECUSA), "recusa"
             if resposta.stop_reason == "max_tokens":
                 # Uma chamada de ferramenta cortada no meio nunca é executada.
-                return self._encerrar_com_falha(ctx, "erro", "Resposta do modelo cortada por tamanho.", RESPOSTA_FALHA)
+                return self._encerrar_com_falha(ctx, "erro", "Resposta do modelo cortada por tamanho.",
+                                                RESPOSTA_FALHA), "corte_por_tamanho"
 
             messages.append({"role": "assistant", "content": resposta.content})
             salvos = para_historico(resposta.content)
@@ -104,6 +130,7 @@ class Agente:
             # Todas as respostas das ferramentas voltam numa única mensagem, na ordem das chamadas.
             resultados = []
             for chamada in chamadas:
+                inicio = time.perf_counter()
                 assinatura = json.dumps([chamada["name"], chamada["input"]], sort_keys=True, ensure_ascii=False)
                 if assinatura in falhas:
                     conteudo, erro = CHAMADA_REPETIDA, True
@@ -114,6 +141,7 @@ class Agente:
                     if erro:
                         falhas.add(assinatura)
                         falhas_por_ferramenta[chamada["name"]] += 1
+                self._rastrear_ferramenta(ctx, chamada["name"], conteudo, erro, _ms(inicio))
                 resultado = {"type": "tool_result", "tool_use_id": chamada["id"], "content": conteudo}
                 if erro:
                     resultado["is_error"] = True
@@ -123,20 +151,20 @@ class Agente:
 
         log.warning("Limite de %s iterações na conversa %s", MAX_ITERACOES, ctx.conversa_id)
         return self._encerrar_com_falha(ctx, "erro", "O atendimento automático passou do limite de passos.",
-                                        RESPOSTA_FALHA)
+                                        RESPOSTA_FALHA), "limite_de_passos"
 
-    def _finalizar(self, ctx: Contexto, texto: str) -> str:
+    def _finalizar(self, ctx: Contexto, texto: str) -> tuple[str, str]:
         """Guardrail de saída: o que vai para o tutor passa por aqui, e só isso fica no histórico."""
         texto, problemas = guardrails.limpar_resposta(texto)
         if problemas:
             log.warning("Resposta ajustada na conversa %s: %s", ctx.conversa_id, ", ".join(problemas))
         if not texto:
-            return self._encerrar_com_falha(ctx, "erro", "O modelo terminou sem texto.", RESPOSTA_FALHA)
+            return self._encerrar_com_falha(ctx, "erro", "O modelo terminou sem texto.", RESPOSTA_FALHA), "sem_texto"
         if guardrails.parece_orientacao_de_saude(texto):
             log.warning("Resposta bloqueada por parecer orientação de saúde na conversa %s", ctx.conversa_id)
             return self._encerrar_com_falha(ctx, "saude", "Resposta automática bloqueada: parecia orientação de saúde.",
-                                            guardrails.RESPOSTA_SAUDE)
-        return self._responder_fixo(ctx, texto)
+                                            guardrails.RESPOSTA_SAUDE), "saude_bloqueada"
+        return self._responder_fixo(ctx, texto), "resposta" + ("_ajustada" if problemas else "")
 
     def _encerrar_com_falha(self, ctx: Contexto, motivo: str, resumo: str, resposta: str) -> str:
         self._passar(ctx, motivo, False, resumo)
@@ -151,3 +179,27 @@ class Agente:
     def _responder_fixo(self, ctx: Contexto, texto: str) -> str:
         self._conversas.registrar(ctx, Papel.AGENTE, [{"type": "text", "text": texto}])
         return texto
+
+    # Rastreio -----------------------------------------------------------------
+
+    def _rastrear_llm(self, ctx: Contexto, resposta: RespostaLLM | None, resultado: str, duracao_ms: int) -> None:
+        uso = resposta.uso if resposta else {}
+        modelo = uso.get("modelo", "desconhecido")
+        self._conversas.rastrear(Execucao(
+            ctx.conversa_id, ctx.turno, ctx.agora, "llm", modelo, resultado, duracao_ms,
+            tokens_entrada=uso.get("input_tokens", 0),
+            tokens_saida=uso.get("output_tokens", 0),
+            tokens_cache_lidos=uso.get("cache_read_input_tokens", 0),
+            tokens_cache_gravados=uso.get("cache_creation_input_tokens", 0),
+            custo_usd=custo_usd(modelo, uso) if resposta else None,
+        ))
+
+    def _rastrear_ferramenta(self, ctx: Contexto, nome: str, conteudo: str, erro: bool, duracao_ms: int) -> None:
+        resultado = "ok"
+        if erro:
+            try:
+                resultado = json.loads(conteudo)["erro"]["codigo"]
+            except (ValueError, KeyError, TypeError):
+                resultado = "erro"
+        self._conversas.rastrear(Execucao(ctx.conversa_id, ctx.turno, ctx.agora, "ferramenta", nome,
+                                          resultado, duracao_ms))

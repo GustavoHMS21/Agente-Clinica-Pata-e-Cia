@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operação do agente</title>
+<style>
+  :root { --verde: #075e54; --texto: #1f2933; --cinza: #6b7280; --borda: #e5e7eb; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--texto); background: #f3f4f6; }
+  header { background: var(--verde); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header nav { display: flex; gap: 12px; }
+  header a { color: #fff; font-size: 14px; }
+  main { max-width: 1100px; margin: 16px auto; padding: 0 16px; display: grid; gap: 16px; }
+  .filtro { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .filtro select { font: inherit; padding: 4px 6px; }
+  .cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .cartao { background: #fff; border-radius: 8px; padding: 12px 14px; }
+  .cartao .rotulo { font-size: 12px; color: var(--cinza); }
+  .cartao .valor { font-size: 24px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .cartao .nota { font-size: 12px; color: var(--cinza); margin-top: 2px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  section { background: #fff; border-radius: 8px; padding: 14px 16px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borda); }
+  th { font-size: 12px; color: var(--cinza); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .vazio { color: var(--cinza); font-size: 14px; margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Patas &amp; Cia · Operação do agente</h1>
+  <nav><a href="/chat">Simulador</a><a href="/joyce">Painel da Joyce</a></nav>
+</header>
+<main>
+  <div class="filtro">
+    <label for="dias">Período</label>
+    <select id="dias">
+      <option value="1">Hoje</option>
+      <option value="7" selected>Últimos 7 dias</option>
+      <option value="30">Últimos 30 dias</option>
+    </select>
+    <span class="nota" id="periodo"></span>
+  </div>
+  <div class="cartoes" id="cartoes"></div>
+  <div class="grade">
+    <section><h2>Como os turnos terminaram</h2><div id="desfechos"></div></section>
+    <section><h2>Ações concluídas pelo agente</h2><div id="acoes"></div></section>
+    <section><h2>Passagens para a Joyce, por motivo</h2><div id="passagens"></div></section>
+    <section><h2>Erros de ferramenta</h2><div id="erros"></div></section>
+    <section><h2>Custo por dia</h2><div id="custo-dia"></div></section>
+  </div>
+</main>
+<script>
+const DESFECHOS = {
+  resposta: "Resposta normal", resposta_ajustada: "Resposta ajustada pelo guardrail",
+  urgencia_fora_do_horario: "Urgência fora do horário (resposta fixa)", saude_bloqueada: "Orientação de saúde bloqueada",
+  falha_llm: "LLM indisponível", recusa: "Recusa do modelo", corte_por_tamanho: "Resposta cortada",
+  limite_de_passos: "Limite de passos", sem_texto: "Modelo sem texto",
+};
+const ACOES = { agendamento: "Agendamentos", pre_agendamento: "Pré-agendamentos (Joyce confirma)",
+                remarcacao: "Remarcações", cancelamento: "Cancelamentos" };
+
+function el(tag, texto, classe) {
+  const e = document.createElement(tag);
+  if (texto !== undefined && texto !== null) e.textContent = texto;
+  if (classe) e.className = classe;
+  return e;
+}
+const usd = v => v === null || v === undefined ? "—" : "US$ " + v.toFixed(v < 1 ? 4 : 2);
+const seg = ms => ms === null || ms === undefined ? "—" : (ms / 1000).toFixed(1) + " s";
+const pct = v => v === null || v === undefined ? "—" : Math.round(v * 100) + "%";
+
+function cartao(rotulo, valor, nota) {
+  const c = el("div", undefined, "cartao");
+  c.appendChild(el("div", rotulo, "rotulo"));
+  c.appendChild(el("div", valor, "valor"));
+  if (nota) c.appendChild(el("div", nota, "nota"));
+  return c;
+}
+
+function tabela(alvo, cabecalho, linhas) {
+  const lugar = document.getElementById(alvo);
+  lugar.replaceChildren();
+  if (!linhas.length) { lugar.appendChild(el("p", "Nada no período.", "vazio")); return; }
+  const t = el("table"), cab = el("tr");
+  cabecalho.forEach((h, i) => cab.appendChild(el("th", h, i === cabecalho.length - 1 ? "num" : "")));
+  t.appendChild(el("thead")).appendChild(cab);
+  const corpo = t.appendChild(el("tbody"));
+  for (const linha of linhas) {
+    const tr = el("tr");
+    linha.forEach((v, i) => tr.appendChild(el("td", v, i === linha.length - 1 ? "num" : "")));
+    corpo.appendChild(tr);
+  }
+  lugar.appendChild(t);
+}
+
+async function carregar() {
+  const dias = document.getElementById("dias").value;
+  const d = await (await fetch(`/api/operacao?dias=${dias}`)).json();
+  document.getElementById("periodo").textContent = `${d.de} a ${d.ate}`;
+  const cartoes = document.getElementById("cartoes");
+  cartoes.replaceChildren(
+    cartao("Conversas", d.conversas),
+    cartao("Mensagens respondidas", d.mensagens),
+    cartao("Custo do LLM", usd(d.custo_usd), d.chamadas_sem_preco ? `${d.chamadas_sem_preco} chamadas sem preço conhecido` : ""),
+    cartao("Custo por mensagem", usd(d.custo_por_mensagem_usd)),
+    cartao("Tempo de resposta", seg(d.tempo_resposta_ms.mediana), `mediana · p95 ${seg(d.tempo_resposta_ms.p95)}`),
+    cartao("Entrada vinda do cache", pct(d.aproveitamento_cache), `${d.chamadas_llm} chamadas ao LLM`),
+    cartao("Falhas do LLM", d.falhas_llm),
+  );
+  tabela("desfechos", ["Desfecho", "Turnos"], Object.entries(d.desfechos).map(([k, v]) => [DESFECHOS[k] || k, v]));
+  tabela("acoes", ["Ação", "Quantidade"], d.acoes_concluidas_pelo_agente.map(a => [ACOES[a.tipo] || a.tipo, a.vezes]));
+  tabela("passagens", ["Motivo", "Quantidade"], d.passagens_por_motivo.map(p => [p.motivo, p.vezes]));
+  tabela("erros", ["Ferramenta", "Código", "Vezes"], d.erros_de_ferramenta.map(e => [e.ferramenta, e.codigo, e.vezes]));
+  tabela("custo-dia", ["Dia", "Custo"], d.custo_por_dia.map(c => [c.dia, usd(c.custo)]));
+}
+
+document.getElementById("dias").addEventListener("change", carregar);
+carregar();
+setInterval(carregar, 30000);
+</script>
+</body>
+</html>

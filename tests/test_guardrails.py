@@ -71,7 +71,7 @@ class LLMRoteiro:
         self.respostas, self.chamadas = list(respostas), []
 
     def criar(self, system, tools, messages):
-        self.chamadas.append(system)
+        self.chamadas.append(list(messages))
         return self.respostas.pop(0)
 
 
@@ -101,7 +101,7 @@ def test_alerta_no_horario_abre_passagem_antes_e_avisa_o_modelo(servico, convers
     agente = Agente(llm, servico, conversas)
     falar(conversas, agente, "o Thor está vomitando desde ontem", TERCA_9H)
     assert passagens(conn) == [("urgencia", True)]
-    assert "ALERTA" in llm.chamadas[0][1]["text"]
+    assert "ALERTA" in llm.chamadas[0][-1]["content"]  # contexto do turno, mensagem de sistema
 
     falar(conversas, agente, "ainda vomitando, to indo", TERCA_9H)  # segundo alerta na mesma conversa
     assert passagens(conn) == [("urgencia", True)]  # não duplica
