@@ -5,6 +5,7 @@
 .env.*
 *.pem
 *.key
+segredos/
 
 # Dados locais e material do cliente
 data/

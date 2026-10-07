@@ -85,7 +85,6 @@ Web Service → Docker → este repositório. Disk: mount path `/data` (exige pl
 
 - Adaptador do WhatsApp (API oficial da Meta): webhook com validação de assinatura e espera para juntar rajadas (ADR 0004, 0007)
 - Login com sessão e um usuário por pessoa no painel (ADR 0007)
-- Backup automático do banco (cópia diária do `/data/patas.db` para fora da máquina)
-- Migração de schema versionada (hoje só tabelas novas entram sozinhas)
+- Cópia do backup diário para fora da máquina (o backup diário e as migrações já existem, ADR 0011)
 - Rotina de retenção da LGPD: apagar conteúdo de conversas com mais de 90 dias (ADR 0004)
 - Dados reais: P1 a P8 com a Beatriz, `PATAS_DADOS_DE_EXEMPLO=0`, contrato (DPA) com o provedor do LLM

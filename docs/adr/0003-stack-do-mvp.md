@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | Linguagem | Python 3.12+ | Ecossistema de IA, SDK oficial da Anthropic, leitura fácil |
 | Ambiente e dependências | uv | Um comando cria o ambiente e trava as versões (`uv.lock`) |
-| Banco | SQLite (módulo `sqlite3` da biblioteca padrão), SQL escrito à mão em `schema.sql` | Zero instalação e nenhum ORM para aprender. Cada consulta fica visível |
+| Banco | SQLite (módulo `sqlite3` da biblioteca padrão), SQL escrito à mão em migrações numeradas (`repositorio/migracoes/`, ADR 0011) | Zero instalação e nenhum ORM para aprender. Cada consulta fica visível |
 | LLM | SDK da Anthropic direto, sem framework de agente (bloco 6) | O loop do agente tem poucas linhas. Escrevendo à mão, cada peça fica visível |
 | API e interface | FastAPI (bloco 8) | Padrão do playbook para webhook de WhatsApp |
 | Testes | pytest | |

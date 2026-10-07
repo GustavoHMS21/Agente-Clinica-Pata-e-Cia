@@ -42,9 +42,44 @@ def conectar(caminho: Path | str) -> sqlite3.Connection:
     return conn
 
 
-def criar_schema(conn: sqlite3.Connection) -> None:
-    sql = resources.files("patas.repositorio").joinpath("schema.sql").read_text(encoding="utf-8")
-    conn.executescript(sql)
+def criar_schema(conn: sqlite3.Connection) -> list[str]:
+    """Leva o banco à versão mais recente aplicando as migrações pendentes (ADR 0011).
+
+    Seguro de chamar a cada subida do servidor: o que já foi aplicado não roda de novo.
+    Devolve os nomes das migrações aplicadas agora.
+    """
+    pasta = resources.files("patas.repositorio").joinpath("migracoes")
+    arquivos = sorted((p.name, p.read_text(encoding="utf-8")) for p in pasta.iterdir() if p.name.endswith(".sql"))
+    return aplicar_migracoes(conn, arquivos)
+
+
+def aplicar_migracoes(conn: sqlite3.Connection, migracoes: list[tuple[str, str]]) -> list[str]:
+    """Aplica, em ordem, as migrações (nome, sql) ainda não registradas. Cada uma é tudo ou nada.
+
+    No SQLite, ALTER TABLE só acrescenta colunas; mudar CHECK ou tipo exige recriar a tabela
+    dentro da migração (criar nova, copiar, apagar a antiga, renomear).
+    """
+    conn.execute("CREATE TABLE IF NOT EXISTS schema_migracao (versao TEXT PRIMARY KEY, aplicada_em TEXT NOT NULL)")
+    aplicadas = {r[0] for r in conn.execute("SELECT versao FROM schema_migracao")}
+    if not aplicadas and conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'tutor'").fetchone():
+        # Banco criado antes das migrações existirem: já está na versão inicial.
+        aplicadas = {migracoes[0][0]}
+        conn.execute("INSERT INTO schema_migracao VALUES (?, datetime('now'))", (migracoes[0][0],))
+
+    novas = []
+    for nome, sql in migracoes:
+        if nome in aplicadas:
+            continue
+        try:
+            conn.executescript("BEGIN;\n" + sql)  # DDL no SQLite é transacional: falhou, nada fica pela metade
+            conn.execute("INSERT INTO schema_migracao VALUES (?, datetime('now'))", (nome,))
+            conn.execute("COMMIT")
+        except Exception:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
+        novas.append(nome)
+    return novas
 
 
 @contextmanager

@@ -100,3 +100,5 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Pendente com a Beatriz: perguntas P1 a P8 em docs/regras-de-negocio.md
 - Pendência paralela: números da avaliação no README do projeto 2
 - Limpeza para entrega (2026-10-06): removidos chat de terminal, provedor Ollama, resultados do piloto e o campo valida_ate; trava por conversa no servidor; contexto do Gemini no topo; corrigida a confirmação dupla (única falha da avaliação completa, 97%); agendamento simples 7/7 na variante v1
+- Produção, fase 1 iniciada (2026-10-06): migrações versionadas e backup diário (ADR 0011), guia de integrações (docs/configurar-integracoes.md), plano em docs/plano-de-producao.md; 157 testes
+- Aguardando: credenciais da Meta (número de teste) e do Google Agenda (conta de serviço); hospedagem escolhida: Fly.io, região São Paulo
