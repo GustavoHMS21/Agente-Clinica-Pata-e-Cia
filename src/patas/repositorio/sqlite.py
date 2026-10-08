@@ -441,6 +441,20 @@ class AtendimentoSQLite:
         )
 
 
+    def registrar_mensagem_recebida(self, wamid: str, telefone: str, quando: datetime) -> bool:
+        cursor = self._conn.execute(
+            "INSERT OR IGNORE INTO mensagem_recebida (wamid, telefone, recebida_em) VALUES (?, ?, ?)",
+            (wamid, telefone, _dt(quando)),
+        )
+        return cursor.rowcount == 1
+
+    def conversas_com_pendencias(self) -> list[Conversa]:
+        rows = self._conn.execute(
+            "SELECT DISTINCT c.* FROM conversa c JOIN mensagem m ON m.conversa_id = c.id WHERE m.turno IS NULL"
+        )
+        return [_conversa(r) for r in rows]
+
+
 def _proposta(r: sqlite3.Row) -> Proposta:
     return Proposta(
         id=r["id"],

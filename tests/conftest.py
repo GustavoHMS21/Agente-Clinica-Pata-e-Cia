@@ -21,6 +21,17 @@ def conn():
 
 
 @pytest.fixture
+def banco(tmp_path):
+    """Banco em arquivo, para o que abre conexões próprias (servidor web, canal WhatsApp)."""
+    caminho = tmp_path / "patas.db"
+    conexao = conectar(caminho)
+    criar_schema(conexao)
+    popular(conexao, HOJE)
+    conexao.close()
+    return caminho
+
+
+@pytest.fixture
 def agenda(conn):
     return AgendaSQLite(conn)
 

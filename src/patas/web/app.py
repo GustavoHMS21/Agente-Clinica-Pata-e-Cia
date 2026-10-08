@@ -4,8 +4,11 @@ Rodar: uv run uvicorn patas.web.app:criar_app --factory --port 8000
 
 O simulador faz o papel do canal: no WhatsApp real, o telefone vem do provedor
 (webhook), nunca do usuário. Aqui ele é escolhido na tela só para teste.
+Com as variáveis WHATSAPP_* preenchidas, o canal real (web/whatsapp.py) liga as rotas /webhook/whatsapp.
 """
 
+import json
+import logging
 import os
 import re
 import secrets
@@ -16,8 +19,9 @@ from datetime import date, timedelta
 from importlib import resources
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
@@ -28,6 +32,9 @@ from patas.dominio.agenda import ServicoAgenda
 from patas.dominio.conversa import ServicoConversa
 from patas.repositorio.painel_sqlite import PainelSQLite
 from patas.repositorio.sqlite import AgendaSQLite, AtendimentoSQLite, conectar
+from patas.web.whatsapp import ClienteWhatsApp, ConfigWhatsApp, Despachante, assinatura_valida, extrair_mensagens
+
+log = logging.getLogger(__name__)
 
 SENHA_MINIMA = 12
 CABECALHOS_DE_SEGURANCA = {
@@ -51,7 +58,8 @@ def criar_app() -> FastAPI:
     usuario = os.environ.get("PAINEL_USUARIO", "").strip()
     senha = os.environ.get("PAINEL_SENHA", "").strip()
     _validar_login(usuario, senha)  # antes de criar o cliente do LLM: falha rápida e sem custo
-    return montar_app(cliente_do_ambiente(), caminho_banco(), usuario, senha)
+    whatsapp = ConfigWhatsApp.do_ambiente()  # None: canal desligado, só o simulador
+    return montar_app(cliente_do_ambiente(), caminho_banco(), usuario, senha, whatsapp)
 
 
 def _validar_login(usuario: str, senha: str) -> None:
@@ -63,7 +71,9 @@ def _validar_login(usuario: str, senha: str) -> None:
         raise RuntimeError(f"PAINEL_SENHA precisa de pelo menos {SENHA_MINIMA} caracteres.")
 
 
-def montar_app(llm: ClienteLLM, banco: Path | str, usuario: str, senha: str) -> FastAPI:
+def montar_app(
+    llm: ClienteLLM, banco: Path | str, usuario: str, senha: str, whatsapp: ConfigWhatsApp | None = None
+) -> FastAPI:
     """Monta o app com o que receber, sem ler ambiente: é o que os testes usam."""
     _validar_login(usuario, senha)
     banco = Path(banco)
@@ -144,6 +154,9 @@ def montar_app(llm: ClienteLLM, banco: Path | str, usuario: str, senha: str) -> 
             resposta = agente.responder(conversa.id, agora_local())
         return {"resposta": resposta or ""}
 
+    if whatsapp is not None:
+        _ligar_whatsapp(app, whatsapp, Despachante(banco, llm, ClienteWhatsApp(whatsapp).enviar_texto, trava_da_conversa))
+
     @app.get("/api/passagens", dependencies=login)
     def passagens(conn: sqlite3.Connection = Depends(conexao)) -> list[dict]:
         return PainelSQLite(conn).passagens_abertas()
@@ -170,6 +183,42 @@ def montar_app(llm: ClienteLLM, banco: Path | str, usuario: str, senha: str) -> 
         return {"dia": dia.isoformat(), "agendamentos": PainelSQLite(conn).agenda_do_dia(dia)}
 
     return app
+
+
+def _ligar_whatsapp(app: FastAPI, config: ConfigWhatsApp, despachante: Despachante) -> None:
+    """Rotas da Meta. Sem login de painel (a Meta não tem a senha): a proteção é o verify token
+    na verificação e a assinatura HMAC em cada mensagem."""
+    app.state.whatsapp = despachante  # os testes trocam o envio e o agendamento por versões falsas
+
+    @app.get("/webhook/whatsapp", response_class=PlainTextResponse)
+    def verificar_webhook(
+        modo: str = Query("", alias="hub.mode"),
+        token: str = Query("", alias="hub.verify_token"),
+        desafio: str = Query("", alias="hub.challenge"),
+    ) -> str:
+        # Feito uma vez, ao cadastrar a URL no painel da Meta: ela confere se o servidor conhece o token.
+        token_ok = secrets.compare_digest(token.encode(), config.verify_token.encode())
+        if modo == "subscribe" and token_ok and desafio.isdigit():
+            return desafio
+        raise HTTPException(403, "Verificação recusada.")
+
+    @app.post("/webhook/whatsapp")
+    async def webhook(request: Request) -> dict:
+        corpo = await request.body()  # o corpo cru: a assinatura é calculada byte a byte sobre ele
+        if not assinatura_valida(corpo, request.headers.get("X-Hub-Signature-256"), config.app_secret):
+            raise HTTPException(403, "Assinatura inválida.")
+        try:
+            mensagens = extrair_mensagens(json.loads(corpo), config.phone_number_id)
+        except (ValueError, AttributeError, TypeError):
+            log.warning("Webhook do WhatsApp com formato inesperado; ignorado.")
+            return {"ok": True}  # 200 mesmo assim: erro 4xx faria a Meta reenviar o mesmo conteúdo
+        if mensagens:
+            await run_in_threadpool(despachante.receber, mensagens)  # grava rápido; o agente roda depois
+        return {"ok": True}
+
+    pendentes = despachante.retomar_pendentes()
+    if pendentes:
+        log.warning("WhatsApp: retomando %d conversa(s) com mensagem sem resposta.", pendentes)
 
 
 def _pagina(nome: str) -> str:

@@ -1,16 +1,12 @@
 """Servidor web (bloco 8) com LLM falso, banco temporário e relógio fixo."""
 
-from datetime import date, datetime
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
 
 from patas.agente.llm import RespostaLLM
-from patas.repositorio.sqlite import conectar, criar_schema
-from patas.seed import popular
 from patas.web import app as web
-
-HOJE = date(2026, 10, 6)  # o mesmo dia do conftest: terça
 
 USUARIO, SENHA = "joyce", "senha-de-teste-123"
 LOGIN = (USUARIO, SENHA)
@@ -20,16 +16,6 @@ DO_APP = {"X-Requested-With": "patas"}
 class LLMFixo:
     def criar(self, system, tools, messages):
         return RespostaLLM("end_turn", [{"type": "text", "text": "Oi! Como posso ajudar?"}])
-
-
-@pytest.fixture
-def banco(tmp_path):
-    caminho = tmp_path / "patas.db"
-    conn = conectar(caminho)
-    criar_schema(conn)
-    popular(conn, HOJE)
-    conn.close()
-    return caminho
 
 
 @pytest.fixture

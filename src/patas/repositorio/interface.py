@@ -112,3 +112,12 @@ class RepositorioAtendimento(Protocol):
 
     # Rastreio (bloco 9)
     def registrar_execucao(self, execucao: Execucao) -> None: ...
+
+    # Canal WhatsApp (produção, fase 1)
+    def registrar_mensagem_recebida(self, wamid: str, telefone: str, quando: datetime) -> bool:
+        """True na primeira vez que o id chega; False se a Meta reenviou a mesma mensagem."""
+        ...
+
+    def conversas_com_pendencias(self) -> list[Conversa]:
+        """Conversas com mensagem do tutor ainda sem resposta (ex.: o servidor caiu no meio)."""
+        ...

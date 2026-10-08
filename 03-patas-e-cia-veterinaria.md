@@ -102,3 +102,4 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Limpeza para entrega (2026-10-06): removidos chat de terminal, provedor Ollama, resultados do piloto e o campo valida_ate; trava por conversa no servidor; contexto do Gemini no topo; corrigida a confirmação dupla (única falha da avaliação completa, 97%); agendamento simples 7/7 na variante v1
 - Produção, fase 1 iniciada (2026-10-06): migrações versionadas e backup diário (ADR 0011), guia de integrações (docs/configurar-integracoes.md), plano em docs/plano-de-producao.md; 157 testes
 - Aguardando: credenciais da Meta (número de teste) e do Google Agenda (conta de serviço); hospedagem escolhida: Fly.io, região São Paulo
+- Canal WhatsApp construído (2026-10-07): ADR 0012, src/patas/web/whatsapp.py, migração 0002 (mensagens recebidas), webhook assinado, rajada num turno, aviso LGPD, celular sem o 9 corrigido; 166 testes. Falta o teste ao vivo com as credenciais
