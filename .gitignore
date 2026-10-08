@@ -23,10 +23,8 @@ dist/
 *.sqlite
 *.sqlite3
 
-# Ferramentas do Claude: nada entra no repositório (inclui os resultados locais da avaliação)
-.claude/
-CLAUDE.md
-CLAUDE.local.md
+# Avaliação com o modelo real: resultados ficam só na máquina local
+evals/resultados/
 
 # Editor e sistema
 .vscode/

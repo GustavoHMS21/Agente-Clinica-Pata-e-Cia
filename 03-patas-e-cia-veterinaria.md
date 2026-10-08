@@ -1,7 +1,7 @@
 # Cliente 03: Patas & Cia Clínica Veterinária (agente de agendamento)
 
 Empresa fictícia. Caso simulado para portfólio.
-Playbook de referência: https://claude.ai/code/artifact/0e27935f-96ef-4b07-a98d-30a3f305f6b9
+Playbook de referência: Playbook do Engenheiro de IA
 
 ## Nível
 Intermediário. Primeiro projeto do portfólio em que o modelo decide o que fazer: chama ferramentas, conversa em vários turnos e age no mundo (marca, remarca e cancela).

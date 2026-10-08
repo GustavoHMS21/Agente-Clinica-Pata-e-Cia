@@ -2,10 +2,10 @@
 
 Roda o agente de verdade (o mesmo Agente da produção, com o LLM do .env) em cada caso, num
 banco em memória com o seed e a data fixa, corrige com evals/corretor.py e grava:
-  .claude/hillclimb/atendimento/<variante>/results.jsonl   uma linha por (caso, repetição)
-  .claude/hillclimb/atendimento/<variante>/traces/          conversa completa de cada caso
-  .claude/hillclimb/atendimento/<variante>/errors.jsonl     falhas que não são nota (API fora, timeout)
-Tudo isso fica só na máquina local (.claude/ está no .gitignore).
+  evals/resultados/<variante>/results.jsonl   uma linha por (caso, repetição)
+  evals/resultados/<variante>/traces/          conversa completa de cada caso
+  evals/resultados/<variante>/errors.jsonl     falhas que não são nota (API fora, timeout)
+Tudo isso fica só na máquina local (evals/resultados/ está no .gitignore).
 
 Uso:
   uv run python -m evals.rodar --approve-harness      depois de revisar casos, corretor e executor
@@ -39,7 +39,7 @@ from patas.repositorio.sqlite import AgendaSQLite, AtendimentoSQLite, conectar, 
 from patas.seed import popular
 
 RAIZ = Path(__file__).resolve().parents[1]
-FLUXO = RAIZ / ".claude" / "hillclimb" / "atendimento"
+FLUXO = RAIZ / "evals" / "resultados"
 ARQUIVOS_DO_HARNESS = ["evals/casos.py", "evals/corretor.py", "evals/rodar.py"]
 TETO_POR_CASO_S = 300
 MINUTOS_ENTRE_MENSAGENS = 2
