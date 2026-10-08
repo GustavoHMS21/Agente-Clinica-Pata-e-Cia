@@ -5,6 +5,7 @@ banco em memória com o seed e a data fixa, corrige com evals/corretor.py e grav
   .claude/hillclimb/atendimento/<variante>/results.jsonl   uma linha por (caso, repetição)
   .claude/hillclimb/atendimento/<variante>/traces/          conversa completa de cada caso
   .claude/hillclimb/atendimento/<variante>/errors.jsonl     falhas que não são nota (API fora, timeout)
+Tudo isso fica só na máquina local (.claude/ está no .gitignore).
 
 Uso:
   uv run python -m evals.rodar --approve-harness      depois de revisar casos, corretor e executor
