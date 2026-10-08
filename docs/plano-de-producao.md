@@ -2,6 +2,8 @@
 
 Do MVP para atender tutores de verdade pelo WhatsApp. Cada fase só começa quando a anterior está verificada.
 
+> **Situação em 2026-10-08: projeto encerrado com a fase 1 construída e desligada.** Todo o código da fase 1 está pronto e testado. Credenciais, deploy e teste ao vivo não foram feitos; para retomar, comece pelo [guia de integrações](configurar-integracoes.md).
+
 ## Fase 1: construção, sem tocar no número da clínica
 
 | Item | Situação |

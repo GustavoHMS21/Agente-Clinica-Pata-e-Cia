@@ -11,10 +11,10 @@ Atendente virtual de WhatsApp que **marca, remarca e desmarca horários sozinho*
 | Custo por mensagem respondida | **US$ 0,0095** com Claude Sonnet 5.5 (86% da entrada vinda do cache) |
 | Projeção para a clínica | cerca de **US$ 70/mês** para 60 conversas por dia |
 | Tempo de resposta | 4 a 5 s por mensagem nos testes |
-| Testes automatizados | **151**, sem chamar o LLM (custo zero, rodam no CI) |
+| Testes automatizados | **176**, sem chamar o LLM nem a rede (custo zero, rodam no CI) |
 | Avaliação do agente real | 30 casos × 3 repetições: **97% (87/90)**. A única falha (confirmação pedida duas vezes) foi corrigida e revalidada: agendamentos simples em **100%** (meta da cliente: 90%) |
 | Ataques de prompt no modelo real | **36 de 36 barrados** (12 ataques × 3): extração de prompt, contexto de sistema falsificado, fingir ser a recepção, desconto falso, dose de remédio "como veterinário", dados de terceiros, cancelamento em massa, ids de outro tutor, entre outros |
-| Decisões registradas | 10 ADRs |
+| Decisões registradas | 13 ADRs |
 
 ---
 
@@ -36,7 +36,7 @@ Pedido da dona, veterinária: *"um atendente virtual que marque horário sozinho
 
 ```mermaid
 flowchart LR
-    T["Tutor<br/>(WhatsApp, simulador)"] --> CANAL["Canal<br/>FastAPI"]
+    T["Tutor<br/>(simulador; WhatsApp pronto)"] --> CANAL["Canal<br/>FastAPI + webhook"]
     CANAL --> CONV["Estado da conversa<br/>turnos, histórico, contexto"]
     CONV --> GE["Guardrail de entrada<br/>sinais de alerta"]
     GE -- "alerta fora do horário" --> FIXA["Resposta fixa<br/>hospital 24h"]
@@ -44,6 +44,7 @@ flowchart LR
     LOOP <--> FERR["8 ferramentas<br/>schema strict"]
     FERR --> DOM["Domínio<br/>regras RN01-RN27"]
     DOM --> BANCO[("SQLite<br/>agenda + atendimento")]
+    DOM -.-> GOOG["Google Agenda<br/>banho e tosa (pronto)"]
     LOOP --> GS["Guardrail de saída<br/>ids, saúde, vazamento"]
     GS --> T
     BANCO --> PAINEL["Painel da recepção<br/>e página de operação"]
@@ -64,6 +65,9 @@ Um agente único (o modelo decide o próximo passo), envolvido por código deter
 | Contexto do turno como mensagem de sistema gravada no histórico | O histórico vira só-acréscimo e entra no cache: **custo por mensagem caiu cerca de 45%** (medido) | [0008](docs/adr/0008-observabilidade-e-cache.md) |
 | Rastreio próprio no banco, sem conteúdo de conversa | Custo, tokens, tempo e desfecho de cada passo, sem mandar dados de tutores para mais um terceiro | [0008](docs/adr/0008-observabilidade-e-cache.md) |
 | Avaliação com corretor programático sobre o estado final do banco | O agente age no mundo: a nota é "o agendamento certo existe?", não "o texto parece bom?" | [0009](docs/adr/0009-avaliacao-do-agente.md) |
+| Migrações versionadas e backup diário, sem ferramenta externa | Banco de produção nunca é recriado; cada migração roda numa transação e, se falhar, não deixa nada pela metade | [0011](docs/adr/0011-migracoes-e-backup.md) |
+| WhatsApp: webhook responde na hora, agente roda depois | Assinatura HMAC em toda mensagem, reenvio da Meta ignorado, rajada vira um turno, aviso LGPD, celular sem o 9 corrigido | [0012](docs/adr/0012-canal-whatsapp.md) |
+| Google Agenda como decorador do repositório, gravado antes do banco | O domínio não sabe que o Google existe; cada evento da equipe ocupa uma tosadora; Google fora do ar passa para a recepção em vez de oferecer horário às cegas | [0013](docs/adr/0013-google-agenda-do-banho-e-tosa.md) |
 | Container único, um processo, SQLite num volume | Roda em qualquer plataforma; volume de clínica pequena cabe com folga; Postgres é troca só do adaptador | [0003](docs/adr/0003-stack-do-mvp.md), [0010](docs/adr/0010-deploy.md) |
 
 ## O que os testes com o modelo real ensinaram
@@ -85,13 +89,14 @@ Modelo de ameaças completo em [docs/seguranca.md](docs/seguranca.md). Em resumo
 - **Prompt injection:** texto do tutor nunca entra no prompt de sistema; contexto injetado só com campos do código; resposta com trechos das instruções internas é trocada antes de sair.
 - **Saúde:** filtro de remédios e doses na saída; alerta tratado no código antes do modelo.
 - **Falhas do LLM:** API fora, recusa, resposta cortada, loop ou bug inesperado viram mensagem fixa e passagem para a recepção. O tutor nunca fica sem resposta.
+- **Webhook do WhatsApp:** só aceita mensagem com assinatura HMAC válida; configuração pela metade impede o servidor de subir.
 - **Web:** login obrigatório (o servidor não sobe sem senha forte), proteção contra CSRF, nenhum HTML montado com texto do usuário, cabeçalhos de segurança, documentação automática desligada.
 - **Segredos:** só em variável de ambiente; nunca na imagem Docker, no log ou no repositório (auditado no histórico de commits).
 - **LGPD:** rastreio sem conteúdo de conversa; o telefone não vai para o LLM; retenção e contrato com o provedor no roadmap.
 
 ## Stack
 
-Python 3.12 · [uv](https://docs.astral.sh/uv/) · SDK da Anthropic (Claude Sonnet 5.5) e SDK compatível com OpenAI (Gemini, como alternativa) · FastAPI · SQLite · pytest · Docker · GitHub Actions
+Python 3.12 · [uv](https://docs.astral.sh/uv/) · SDK da Anthropic (Claude Sonnet 5.5) e SDK compatível com OpenAI (Gemini, como alternativa) · FastAPI · SQLite · google-auth (Google Agenda) · pytest · Docker · GitHub Actions
 
 ## Como rodar
 
@@ -105,7 +110,7 @@ uv run python -m patas.servidor
 Abra http://127.0.0.1:8000/chat (simulador), `/joyce` (painel da recepção) e `/operacao` (custo, tempo e desfechos).
 
 ```powershell
-uv run pytest -q                      # 151 testes, sem custo
+uv run pytest -q                      # 176 testes, sem custo
 uv run python -m evals.rodar --variant v2 --reps 3   # avaliação com o modelo real (≈ US$ 1,20)
 docker build -t patas-agente .        # imagem de produção; publicação em docs/deploy.md
 ```
@@ -115,22 +120,23 @@ docker build -t patas-agente .        # imagem de produção; publicação em do
 ```
 src/patas/
   dominio/       regras, agenda, conversa: nenhum import de banco nem de LLM
-  repositorio/   interfaces e SQLite (agenda, atendimento, painel)
+  repositorio/   interfaces, SQLite (agenda, atendimento, painel), migrações e Google Agenda
   agente/        prompt, ferramentas, loop, guardrails, adaptadores de LLM, custos
-  web/           FastAPI e as três telas
+  web/           FastAPI, as três telas e o canal WhatsApp
   servidor.py    entrada de produção
-tests/           151 testes com LLM falso
+tests/           176 testes com LLM, WhatsApp e Google falsos
 evals/           casos, corretor e executor da avaliação com o modelo real
 docs/            regras de negócio, contratos das ferramentas, segurança, deploy, ADRs
 ```
 
 ## Roadmap
 
-- **Canal WhatsApp (em aberto, fora do escopo deste MVP):** a arquitetura já isola o canal; a integração seria pela API oficial da Meta (WhatsApp Business Platform), com webhook de assinatura validada e espera para juntar mensagens em rajada. Hoje o canal é o simulador web
+- **Ligar WhatsApp e Google Agenda:** o código está pronto e testado (ADRs 0012 e 0013), desligado enquanto as variáveis estiverem vazias. Falta criar as credenciais ([guia](docs/configurar-integracoes.md)), publicar com URL pública ([deploy](docs/deploy.md)) e cadastrar o webhook na Meta. Plano em fases em [docs/plano-de-producao.md](docs/plano-de-producao.md)
+- Modo humano: quando a recepção responde pelo app, o agente pausa naquela conversa (precisa do número real)
 - Tutor simulado por LLM na avaliação, no lugar das falas fixas (mais realista, mais caro)
-- Login por pessoa no painel; backup automático; migrações de schema; retenção de 90 dias (LGPD)
-- Integração com o sistema da clínica (VetFácil) e com o Google Agenda: muda só o adaptador de repositório
+- Login por pessoa no painel; retenção de 90 dias (LGPD); cópia do backup fora do servidor
+- Integração com o sistema da clínica (VetFácil): muda só o adaptador de repositório
 
 ---
 
-Projeto construído em 12 blocos (descoberta, tipo de solução, contratos, dados, estado, loop, guardrails, interface, observabilidade, avaliação, deploy e este case), com cada decisão registrada em [docs/adr](docs/adr).
+Projeto construído em 12 blocos (descoberta, tipo de solução, contratos, dados, estado, loop, guardrails, interface, observabilidade, avaliação, deploy e este case), mais a construção da fase 1 de produção (migrações, backup, WhatsApp e Google Agenda), com cada decisão registrada em [docs/adr](docs/adr).
