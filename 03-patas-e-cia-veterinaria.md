@@ -103,3 +103,4 @@ Intermediário. Primeiro projeto do portfólio em que o modelo decide o que faze
 - Produção, fase 1 iniciada (2026-10-06): migrações versionadas e backup diário (ADR 0011), guia de integrações (docs/configurar-integracoes.md), plano em docs/plano-de-producao.md; 157 testes
 - Aguardando: credenciais da Meta (número de teste) e do Google Agenda (conta de serviço); hospedagem escolhida: Fly.io, região São Paulo
 - Canal WhatsApp construído (2026-10-07): ADR 0012, src/patas/web/whatsapp.py, migração 0002 (mensagens recebidas), webhook assinado, rajada num turno, aviso LGPD, celular sem o 9 corrigido; 166 testes. Falta o teste ao vivo com as credenciais
+- Google Agenda do banho e tosa construído (2026-10-08): ADR 0013, src/patas/repositorio/google_agenda.py (decorador da RepositorioAgenda, capacidade = tosadoras, Google gravado primeiro, falha fechada), google-auth virou dependência; 176 testes. Falta o teste ao vivo com as credenciais

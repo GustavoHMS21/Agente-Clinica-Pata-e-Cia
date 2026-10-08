@@ -230,6 +230,10 @@ class AgendaSQLite:
         r = self._conn.execute("SELECT tipo FROM profissional WHERE id = ?", (profissional_id,)).fetchone()
         return r["tipo"] if r else None
 
+    def listar_profissionais(self, tipo: str) -> list[str]:
+        rows = self._conn.execute("SELECT id FROM profissional WHERE tipo = ? ORDER BY id", (tipo,))
+        return [r["id"] for r in rows]
+
     def listar_dias_especiais(self, de: date, ate: date) -> dict[date, Janela | None]:
         rows = self._conn.execute(
             "SELECT data, abre, fecha FROM feriado WHERE data BETWEEN ? AND ?", (de.isoformat(), ate.isoformat())

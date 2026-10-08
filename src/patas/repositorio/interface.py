@@ -40,6 +40,9 @@ class RepositorioAgenda(Protocol):
     def tipo_profissional(self, profissional_id: str) -> str | None:
         """veterinaria ou tosadora."""
         ...
+    def listar_profissionais(self, tipo: str) -> list[str]:
+        """Ids dos profissionais de um tipo, em ordem fixa (ex.: a equipe de tosa)."""
+        ...
     def listar_dias_especiais(self, de: date, ate: date) -> dict[date, Janela | None]:
         """Feriados e dias de horário reduzido (P8). None: fechado o dia todo; Janela: só nessa faixa."""
         ...

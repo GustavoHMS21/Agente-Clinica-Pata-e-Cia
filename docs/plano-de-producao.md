@@ -8,7 +8,7 @@ Do MVP para atender tutores de verdade pelo WhatsApp. Cada fase só começa quan
 | --- | --- |
 | Migrações versionadas e backup diário | **Feito** (ADR 0011) |
 | Contas: app na Meta com número de teste, Google Agenda de teste com conta de serviço | Com o dono das contas ([guia](configurar-integracoes.md)) |
-| Adaptador do Google Agenda para banho e tosa: horários ocupados e eventos vêm da agenda real | A fazer, depende das credenciais |
+| Adaptador do Google Agenda para banho e tosa: horários ocupados e eventos vêm da agenda real | **Feito** (ADR 0013); falta o teste ao vivo com as credenciais |
 | Adaptador do WhatsApp: webhook com assinatura validada, resposta 200 imediata e processamento em segundo plano, mensagens repetidas ignoradas, rajada juntada, envio pela API, áudio e foto pedem texto | **Feito** (ADR 0012); falta o teste ao vivo com as credenciais |
 | Modo humano: quando a recepção responde pelo app (coexistência), o agente pausa naquela conversa | Fase 2: só existe com o número real |
 | Aviso de atendimento automático na primeira mensagem (LGPD) | **Feito** (ADR 0012), na primeira resposta de cada conversa |
@@ -29,4 +29,5 @@ Consultas pelo sistema da clínica, se o VetFácil tiver API; senão, pré-agend
 ## Decisões em aberto
 
 - **VetFácil tem API?** Define se consultas e vacinas entram direto na agenda da clínica.
+- **A equipe de tosa usa uma agenda só no Google?** O adaptador supõe que sim (cada evento ocupa uma tosadora). Agendas separadas por tosadora mudam a distribuição (ADR 0013).
 - **WhatsApp direto com a Meta ou por parceiro oficial** (360dialog, Twilio, Zenvia): sem mensalidade e cadastro mais trabalhoso, ou o contrário.

@@ -1,11 +1,10 @@
 """Confere se as credenciais do WhatsApp e do Google Agenda funcionam, sem nunca imprimir segredos.
 
 Uso:
-  uv run --with google-auth --with requests python -m patas.verificar_integracoes
-  uv run --with google-auth --with requests python -m patas.verificar_integracoes --enviar-teste
+  uv run python -m patas.verificar_integracoes
+  uv run python -m patas.verificar_integracoes --enviar-teste
 
 --enviar-teste manda o modelo hello_world do número de teste para WHATSAPP_DESTINATARIO_TESTE.
-O "--with" instala as bibliotecas do Google só para esta execução, sem mudar o projeto.
 """
 
 import argparse
@@ -14,9 +13,9 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from pathlib import Path
 
-from patas.config import RAIZ, carregar_ambiente
+from patas.config import carregar_ambiente
+from patas.repositorio.google_agenda import ler_credenciais
 
 WHATSAPP = ["WHATSAPP_API_VERSAO", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_TOKEN", "WHATSAPP_APP_SECRET",
             "WHATSAPP_VERIFY_TOKEN"]
@@ -85,28 +84,17 @@ def verificar_google() -> bool:
     print("Google Agenda")
     if not _presentes(GOOGLE):
         return False
-    arquivo = Path(os.environ["GOOGLE_CREDENCIAIS"])
-    arquivo = arquivo if arquivo.is_absolute() else RAIZ / arquivo
-    if not arquivo.exists():
-        _falha(f"arquivo de credenciais não encontrado em {os.environ['GOOGLE_CREDENCIAIS']}")
-        return False
     try:
-        credencial = json.loads(arquivo.read_text(encoding="utf-8"))
-    except ValueError:
-        _falha("o arquivo de credenciais não é um JSON válido")
-        return False
-    if credencial.get("type") != "service_account":
-        _falha("o JSON não é de conta de serviço (type deveria ser service_account)")
+        credencial = ler_credenciais(os.environ["GOOGLE_CREDENCIAIS"])  # a mesma leitura do servidor
+    except RuntimeError as e:
+        _falha(str(e))
         return False
     _ok(f"conta de serviço {credencial.get('client_email')}")
-    try:
-        from google.auth.transport.requests import AuthorizedSession
-        from google.oauth2 import service_account
-    except ImportError:
-        _falha("bibliotecas do Google ausentes: rode com --with google-auth --with requests")
-        return False
+    from google.auth.transport.requests import AuthorizedSession
+    from google.oauth2 import service_account
+
     escopo = ["https://www.googleapis.com/auth/calendar"]
-    sessao = AuthorizedSession(service_account.Credentials.from_service_account_file(str(arquivo), scopes=escopo))
+    sessao = AuthorizedSession(service_account.Credentials.from_service_account_info(credencial, scopes=escopo))
     agenda = os.environ["GOOGLE_AGENDA_ID"]
     resposta = sessao.get(f"https://www.googleapis.com/calendar/v3/calendars/{agenda}", timeout=20)
     if resposta.status_code != 200:

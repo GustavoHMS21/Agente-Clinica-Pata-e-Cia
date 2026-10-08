@@ -82,7 +82,7 @@ GOOGLE_CREDENCIAIS=segredos/google-agenda.json
 Na pasta do projeto:
 
 ```powershell
-uv run --with google-auth --with requests python -m patas.verificar_integracoes --enviar-teste
+uv run python -m patas.verificar_integracoes --enviar-teste
 ```
 
 O resultado esperado é `[ok]` em todas as linhas, a mensagem "Tudo certo." e um `hello_world` chegando no WhatsApp do dono. O comando nunca mostra valores de segredo. Se algo falhar, a linha `[FALHA]` diz o que é: variável vazia, token expirado, agenda não compartilhada.

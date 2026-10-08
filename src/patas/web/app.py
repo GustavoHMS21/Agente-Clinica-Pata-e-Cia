@@ -30,6 +30,8 @@ from patas.agente.loop import Agente
 from patas.config import agora_local, caminho_banco, carregar_ambiente
 from patas.dominio.agenda import ServicoAgenda
 from patas.dominio.conversa import ServicoConversa
+from patas.repositorio.google_agenda import AgendaComGoogle, Calendario, CalendarioGoogle
+from patas.repositorio.interface import RepositorioAgenda
 from patas.repositorio.painel_sqlite import PainelSQLite
 from patas.repositorio.sqlite import AgendaSQLite, AtendimentoSQLite, conectar
 from patas.web.whatsapp import ClienteWhatsApp, ConfigWhatsApp, Despachante, assinatura_valida, extrair_mensagens
@@ -59,7 +61,8 @@ def criar_app() -> FastAPI:
     senha = os.environ.get("PAINEL_SENHA", "").strip()
     _validar_login(usuario, senha)  # antes de criar o cliente do LLM: falha rápida e sem custo
     whatsapp = ConfigWhatsApp.do_ambiente()  # None: canal desligado, só o simulador
-    return montar_app(cliente_do_ambiente(), caminho_banco(), usuario, senha, whatsapp)
+    google = CalendarioGoogle.do_ambiente()  # None: banho e tosa só no banco local
+    return montar_app(cliente_do_ambiente(), caminho_banco(), usuario, senha, whatsapp, google)
 
 
 def _validar_login(usuario: str, senha: str) -> None:
@@ -72,13 +75,23 @@ def _validar_login(usuario: str, senha: str) -> None:
 
 
 def montar_app(
-    llm: ClienteLLM, banco: Path | str, usuario: str, senha: str, whatsapp: ConfigWhatsApp | None = None
+    llm: ClienteLLM,
+    banco: Path | str,
+    usuario: str,
+    senha: str,
+    whatsapp: ConfigWhatsApp | None = None,
+    google: Calendario | None = None,
 ) -> FastAPI:
     """Monta o app com o que receber, sem ler ambiente: é o que os testes usam."""
     _validar_login(usuario, senha)
     banco = Path(banco)
     if not banco.exists():
         raise RuntimeError("Banco não encontrado. Rode antes: uv run python -m patas.seed")
+
+    def agenda_de(conn: sqlite3.Connection) -> RepositorioAgenda:
+        # O único lugar que decide de onde vem a agenda: o domínio recebe o contrato pronto (ADR 0001).
+        base = AgendaSQLite(conn)
+        return AgendaComGoogle(base, google) if google else base
 
     basic = HTTPBasic(realm="Patas & Cia")
 
@@ -144,7 +157,7 @@ def montar_app(
 
     @app.post("/api/mensagens", dependencies=escrita)
     def mensagem(entrada: MensagemEntrada, conn: sqlite3.Connection = Depends(conexao)) -> dict:
-        agenda_repo, atendimento_repo = AgendaSQLite(conn), AtendimentoSQLite(conn)
+        agenda_repo, atendimento_repo = agenda_de(conn), AtendimentoSQLite(conn)
         conversas = ServicoConversa(agenda_repo, atendimento_repo)
         conversa = conversas.receber(entrada.telefone, entrada.texto, agora_local())
         # Um turno por vez em cada conversa: duas mensagens rápidas não rodam o agente em paralelo
@@ -155,7 +168,8 @@ def montar_app(
         return {"resposta": resposta or ""}
 
     if whatsapp is not None:
-        _ligar_whatsapp(app, whatsapp, Despachante(banco, llm, ClienteWhatsApp(whatsapp).enviar_texto, trava_da_conversa))
+        enviar = ClienteWhatsApp(whatsapp).enviar_texto
+        _ligar_whatsapp(app, whatsapp, Despachante(banco, llm, enviar, trava_da_conversa, agenda_de))
 
     @app.get("/api/passagens", dependencies=login)
     def passagens(conn: sqlite3.Connection = Depends(conexao)) -> list[dict]:

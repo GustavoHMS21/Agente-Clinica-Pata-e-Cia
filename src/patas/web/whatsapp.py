@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import threading
 import urllib.error
 import urllib.request
@@ -31,6 +32,7 @@ from patas.config import agora_local
 from patas.dominio.agenda import ServicoAgenda
 from patas.dominio.conversa import ServicoConversa
 from patas.dominio.telefone import normalizar_telefone
+from patas.repositorio.interface import RepositorioAgenda
 from patas.repositorio.sqlite import AgendaSQLite, AtendimentoSQLite, conectar
 
 log = logging.getLogger(__name__)
@@ -178,12 +180,14 @@ class Despachante:
         llm: ClienteLLM,
         enviar: Enviar,
         trava_da_conversa: Callable[[str], AbstractContextManager],
+        agenda_de: Callable[[sqlite3.Connection], RepositorioAgenda] = AgendaSQLite,
         relogio: Callable[[], datetime] | None = None,
         espera: float = ESPERA_DA_RAJADA,
     ) -> None:
         self._banco = banco
         self._llm = llm
         self._trava = trava_da_conversa
+        self._agenda_de = agenda_de
         self._relogio = relogio or (lambda: agora_local())  # lido na hora: os testes fixam o relógio
         self._espera = espera
         self._temporizadores: dict[str, threading.Timer] = {}
@@ -223,7 +227,7 @@ class Despachante:
         try:
             with self._trava(conversa_id):
                 with self._conexao() as conn:
-                    agenda, atendimento = AgendaSQLite(conn), AtendimentoSQLite(conn)
+                    agenda, atendimento = self._agenda_de(conn), AtendimentoSQLite(conn)
                     conversas = ServicoConversa(agenda, atendimento)
                     agente = Agente(self._llm, ServicoAgenda(agenda, atendimento), conversas)
                     resposta = agente.responder(conversa_id, self._relogio())
