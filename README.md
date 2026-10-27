@@ -15,6 +15,7 @@ Atendente virtual de WhatsApp que **marca, remarca e desmarca horários sozinho*
 | Avaliação do agente real | 30 casos × 3 repetições: **97% (87/90)**. A única falha (confirmação pedida duas vezes) foi corrigida e revalidada: agendamentos simples em **100%** (meta da cliente: 90%) |
 | Ataques de prompt no modelo real | **36 de 36 barrados** (12 ataques × 3): extração de prompt, contexto de sistema falsificado, fingir ser a recepção, desconto falso, dose de remédio "como veterinário", dados de terceiros, cancelamento em massa, ids de outro tutor, entre outros |
 | Decisões registradas | 13 ADRs |
+| Tempo de construção | 3 dias, do primeiro commit (6/out/2026) à versão atual (8/out/2026) |
 
 ---
 
